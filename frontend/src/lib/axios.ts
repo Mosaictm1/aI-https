@@ -32,9 +32,21 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-        // Handle 401 Unauthorized
+        // Skip logout for network errors (CORS, no connection, etc.)
+        if (!error.response) {
+            console.error('Network error:', error.message);
+            return Promise.reject(error);
+        }
+
+        // Handle 401 Unauthorized - only if it's a real API response
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
+
+            // Check if this is the auth endpoints (don't retry login/register)
+            const isAuthEndpoint = originalRequest.url?.includes('/auth/');
+            if (isAuthEndpoint) {
+                return Promise.reject(error);
+            }
 
             // Try to refresh token
             const refreshToken = localStorage.getItem('refreshToken');
@@ -57,6 +69,7 @@ api.interceptors.response.use(
                     window.location.href = '/login';
                 }
             } else {
+                // No refresh token, logout
                 useAuthStore.getState().logout();
                 window.location.href = '/login';
             }
