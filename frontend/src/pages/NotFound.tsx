@@ -36,18 +36,18 @@ export default function NotFound() {
 
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                    <Button asChild>
-                        <Link to="/">
+                    <Link to="/">
+                        <Button>
                             <Home className="h-4 w-4 ml-2" />
                             العودة للرئيسية
-                        </Link>
-                    </Button>
-                    <Button variant="outline" asChild>
-                        <Link to="/dashboard">
+                        </Button>
+                    </Link>
+                    <Link to="/dashboard">
+                        <Button variant="outline">
                             الذهاب للوحة التحكم
                             <ArrowRight className="h-4 w-4 mr-2" />
-                        </Link>
-                    </Button>
+                        </Button>
+                    </Link>
                 </div>
 
                 {/* Help Link */}
