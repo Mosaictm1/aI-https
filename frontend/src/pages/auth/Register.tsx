@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,6 +5,7 @@ import { z } from 'zod';
 import { Mail, Lock, User, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useRegister } from '@/hooks/useAuth';
 import { toast } from '@/components/ui/toast';
 
 const registerSchema = z
@@ -24,7 +24,7 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function Register() {
     const navigate = useNavigate();
-    const [isLoading, setIsLoading] = useState(false);
+    const registerMutation = useRegister();
 
     const {
         register,
@@ -35,28 +35,27 @@ export default function Register() {
     });
 
     const onSubmit = async (data: RegisterFormData) => {
-        setIsLoading(true);
-
         try {
-            // TODO: Replace with actual API call
-            console.log('Register data:', data);
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await registerMutation.mutateAsync({
+                name: data.name,
+                email: data.email,
+                password: data.password,
+            });
 
             toast({
                 title: 'تم إنشاء الحساب!',
-                description: 'يمكنك الآن تسجيل الدخول',
+                description: 'مرحباً بك في AI-HTTP',
                 variant: 'success',
             });
 
-            navigate('/login');
-        } catch {
+            navigate('/dashboard');
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'فشل في إنشاء الحساب. حاول مرة أخرى.';
             toast({
                 title: 'خطأ',
-                description: 'فشل في إنشاء الحساب. حاول مرة أخرى.',
+                description: message,
                 variant: 'error',
             });
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -112,8 +111,8 @@ export default function Register() {
                     />
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
+                <Button type="submit" className="w-full" disabled={registerMutation.isPending}>
+                    {registerMutation.isPending ? (
                         <>
                             <Loader2 className="h-4 w-4 animate-spin" />
                             جارٍ إنشاء الحساب...
