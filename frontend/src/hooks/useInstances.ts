@@ -4,7 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api, { ApiResponse } from '@/lib/axios';
-import type { Instance, CreateInstanceInput, UpdateInstanceInput, PaginatedResponse } from '@/types';
+import type { Instance, CreateInstanceInput, UpdateInstanceInput } from '@/types';
 
 // ==================== Query Keys ====================
 
@@ -22,8 +22,9 @@ export function useInstances() {
     return useQuery({
         queryKey: instanceKeys.lists(),
         queryFn: async () => {
-            const response = await api.get<ApiResponse<PaginatedResponse<Instance>>>('/instances');
-            return response.data.data;
+            const response = await api.get<ApiResponse<Instance[]>>('/instances');
+            // Backend returns array directly, wrap in items for consistency
+            return { items: response.data.data, total: response.data.data.length };
         },
     });
 }

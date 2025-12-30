@@ -3,7 +3,7 @@
 // ============================================
 
 import { useQuery } from '@tanstack/react-query';
-import api, { ApiResponse, PaginatedResponse } from '@/lib/axios';
+import api, { ApiResponse } from '@/lib/axios';
 import type { Workflow, WorkflowExecution } from '@/types';
 
 // ==================== Query Keys ====================
@@ -40,10 +40,11 @@ export function useWorkflows(query: WorkflowsQuery = {}) {
             if (query.active !== undefined) params.append('active', query.active.toString());
             if (query.search) params.append('search', query.search);
 
-            const response = await api.get<ApiResponse<PaginatedResponse<Workflow>>>(
+            const response = await api.get<ApiResponse<Workflow[]>>(
                 `/workflows?${params.toString()}`
             );
-            return response.data.data;
+            // Backend returns array directly, wrap in items for consistency
+            return { items: response.data.data, total: response.data.data.length };
         },
     });
 }
@@ -63,10 +64,11 @@ export function useWorkflowExecutions(workflowId: string, page = 1, limit = 10) 
     return useQuery({
         queryKey: workflowKeys.executions(workflowId),
         queryFn: async () => {
-            const response = await api.get<ApiResponse<PaginatedResponse<WorkflowExecution>>>(
+            const response = await api.get<ApiResponse<WorkflowExecution[]>>(
                 `/workflows/${workflowId}/executions?page=${page}&limit=${limit}`
             );
-            return response.data.data;
+            // Backend returns array directly, wrap in items for consistency
+            return { items: response.data.data, total: response.data.data.length };
         },
         enabled: !!workflowId,
     });
