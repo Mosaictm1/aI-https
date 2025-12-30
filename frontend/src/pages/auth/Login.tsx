@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,7 +5,7 @@ import { z } from 'zod';
 import { Mail, Lock, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useAuthStore } from '@/stores/auth.store';
+import { useLogin } from '@/hooks/useAuth';
 import { toast } from '@/components/ui/toast';
 
 const loginSchema = z.object({
@@ -18,8 +17,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function Login() {
     const navigate = useNavigate();
-    const { login } = useAuthStore();
-    const [isLoading, setIsLoading] = useState(false);
+    const loginMutation = useLogin();
 
     const {
         register,
@@ -30,22 +28,8 @@ export default function Login() {
     });
 
     const onSubmit = async (data: LoginFormData) => {
-        setIsLoading(true);
-
         try {
-            // TODO: Replace with actual API call
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-
-            // Mock login
-            login(
-                {
-                    id: '1',
-                    email: data.email,
-                    name: 'مستخدم تجريبي',
-                },
-                'mock-jwt-token'
-            );
+            await loginMutation.mutateAsync(data);
 
             toast({
                 title: 'مرحباً بك!',
@@ -54,14 +38,13 @@ export default function Login() {
             });
 
             navigate('/dashboard');
-        } catch {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'فشل في تسجيل الدخول. تحقق من بياناتك.';
             toast({
                 title: 'خطأ',
-                description: 'فشل في تسجيل الدخول. تحقق من بياناتك.',
+                description: message,
                 variant: 'error',
             });
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -103,8 +86,8 @@ export default function Login() {
                     />
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
+                <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+                    {loginMutation.isPending ? (
                         <>
                             <Loader2 className="h-4 w-4 animate-spin" />
                             جارٍ تسجيل الدخول...
