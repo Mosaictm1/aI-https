@@ -1,0 +1,65 @@
+# ============================================
+# Render Blueprint - Infrastructure as Code
+# ============================================
+# This file defines the infrastructure for Render deployment
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  # ============================================
+  # Backend Web Service
+  # ============================================
+  - type: web
+    name: ai-http-backend
+    runtime: node
+    region: frankfurt # or singapore, oregon, ohio
+    plan: starter # free, starter, standard, pro
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /health
+    autoDeploy: true
+    
+    envVars:
+      # Server
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      
+      # Database (Supabase)
+      - key: DATABASE_URL
+        sync: false # Set manually in dashboard
+      - key: DIRECT_URL
+        sync: false
+      
+      # Security
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      
+      # AI
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      
+      # Frontend URL
+      - key: FRONTEND_URL
+        sync: false
+
+  # ============================================
+  # Redis Cache (Optional)
+  # ============================================
+  - type: redis
+    name: ai-http-redis
+    plan: free # free, starter, standard
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: [] # Allow only internal connections
+
+# ============================================
+# Environment Groups (Shared Variables)
+# ============================================
+envVarGroups:
+  - name: ai-http-shared
+    envVars:
+      - key: NODE_ENV
+        value: production
