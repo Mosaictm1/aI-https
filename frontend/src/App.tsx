@@ -20,7 +20,16 @@ import ApiKeys from '@/pages/ApiKeys';
 
 // Protected Route Wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { isAuthenticated } = useAuthStore();
+    const { isAuthenticated, isLoading } = useAuthStore();
+
+    // Wait for auth state to be loaded from localStorage
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-deep-teal-200">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent-yellow border-t-transparent"></div>
+            </div>
+        );
+    }
 
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
