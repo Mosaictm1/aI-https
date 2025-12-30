@@ -4,7 +4,6 @@ import {
     Server,
     Activity,
     Key,
-    TrendingUp,
     AlertTriangle,
     CheckCircle,
     Clock,
@@ -31,7 +30,7 @@ export default function Dashboard() {
     const workflows = workflowsData?.items || [];
 
     const activeWorkflows = workflows.filter((w) => w.active).length;
-    const connectedInstances = instances.filter((i) => i.status === 'CONNECTED').length;
+    const connectedInstances = instances.filter((i) => i.isActive).length;
 
     const isLoading = instancesLoading || workflowsLoading;
 
