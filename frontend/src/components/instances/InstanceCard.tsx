@@ -119,21 +119,27 @@ export default function InstanceCard({
                         <div
                             className={cn(
                                 'w-2 h-2 rounded-full',
-                                instance.isActive
+                                instance.status === 'CONNECTED'
                                     ? 'bg-lime-green animate-pulse'
-                                    : 'bg-action-orange'
+                                    : instance.status === 'ERROR'
+                                        ? 'bg-action-orange'
+                                        : instance.status === 'SYNCING'
+                                            ? 'bg-accent-yellow animate-pulse'
+                                            : 'bg-white/30'
                             )}
                         />
                         <span className="text-sm text-white/60">
-                            {instance.isActive ? 'متصل' : 'غير متصل'}
+                            {instance.status === 'CONNECTED' ? 'متصل' :
+                                instance.status === 'ERROR' ? 'خطأ' :
+                                    instance.status === 'SYNCING' ? 'جاري المزامنة...' : 'غير متصل'}
                         </span>
-                        <Badge variant={instance.isActive ? 'success' : 'error'} className="mr-auto">
-                            {instance.isActive ? (
+                        <Badge variant={instance.status === 'CONNECTED' ? 'success' : instance.status === 'ERROR' ? 'error' : 'warning'} className="mr-auto">
+                            {instance.status === 'CONNECTED' ? (
                                 <Wifi className="h-3 w-3 ml-1" />
                             ) : (
                                 <WifiOff className="h-3 w-3 ml-1" />
                             )}
-                            {instance.isActive ? 'نشط' : 'غير نشط'}
+                            {instance.status === 'CONNECTED' ? 'نشط' : 'غير نشط'}
                         </Badge>
                     </div>
 
@@ -154,7 +160,7 @@ export default function InstanceCard({
                                 <span className="text-xs">آخر مزامنة</span>
                             </div>
                             <p className="text-xs font-medium text-white mt-1 truncate">
-                                {formatDate(instance.lastSyncAt)}
+                                {formatDate(instance.lastSync)}
                             </p>
                         </div>
                     </div>

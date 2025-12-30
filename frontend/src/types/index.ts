@@ -21,13 +21,17 @@ export interface UserSettings {
 
 // ==================== Instance ====================
 
+export type InstanceStatus = 'CONNECTED' | 'DISCONNECTED' | 'ERROR' | 'SYNCING';
+
 export interface Instance {
     id: string;
     name: string;
     url: string;
-    isActive: boolean;
-    lastSyncAt: string | null;
-    workflowCount: number;
+    status: InstanceStatus;
+    version?: string;
+    lastSync: string | null;
+    lastError?: string;
+    workflowCount?: number;
     createdAt: string;
     updatedAt: string;
 }
