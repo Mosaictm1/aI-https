@@ -91,7 +91,7 @@ REDIS_URL="redis://localhost:6379"
 JWT_SECRET="your-super-secret-jwt-key-here"
 JWT_EXPIRES_IN="7d"
 
-# n8n Integration
+# n8n  Integration
 N8N_API_URL="https://your-n8n-instance.com/api/v1"
 N8N_API_KEY="your-n8n-api-key"
 
