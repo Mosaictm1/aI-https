@@ -11,6 +11,12 @@ import Dashboard from '@/pages/Dashboard';
 import Login from '@/pages/auth/Login';
 import Register from '@/pages/auth/Register';
 import NotFound from '@/pages/NotFound';
+import Instances from '@/pages/Instances';
+import Workflows from '@/pages/Workflows';
+import WorkflowDetails from '@/pages/WorkflowDetails';
+import Settings from '@/pages/Settings';
+import HttpBuilder from '@/pages/HttpBuilder';
+import ApiKeys from '@/pages/ApiKeys';
 
 // Protected Route Wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -71,7 +77,14 @@ function App() {
                 >
                     <Route index element={<Navigate to="/dashboard" replace />} />
                     <Route path="dashboard" element={<Dashboard />} />
-                    {/* More routes will be added here */}
+                    <Route path="instances" element={<Instances />} />
+                    <Route path="workflows" element={<Workflows />} />
+                    <Route path="workflows/:id" element={<WorkflowDetails />} />
+                    <Route path="http-builder" element={<HttpBuilder />} />
+                    <Route path="ai-analysis" element={<Dashboard />} /> {/* TODO: AI Analysis page */}
+                    <Route path="templates" element={<Dashboard />} /> {/* TODO: Templates page */}
+                    <Route path="api-keys" element={<ApiKeys />} />
+                    <Route path="settings" element={<Settings />} />
                 </Route>
 
                 {/* 404 */}
@@ -84,3 +97,4 @@ function App() {
 }
 
 export default App;
+
