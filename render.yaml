@@ -38,8 +38,8 @@ services:
       - key: ENCRYPTION_KEY
         generateValue: true
       
-      # AI
-      - key: ANTHROPIC_API_KEY
+      # AI (Manus Max)
+      - key: MANUS_API_KEY
         sync: false
       
       # Frontend URL

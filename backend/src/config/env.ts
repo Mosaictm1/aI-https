@@ -35,9 +35,8 @@ const envSchema = z.object({
     // Encryption
     ENCRYPTION_KEY: z.string().min(32),
 
-    // API Keys
-    ANTHROPIC_API_KEY: z.string().optional(),
-    PERPLEXITY_API_KEY: z.string().optional(),
+    // AI Integration (Manus Max)
+    MANUS_API_KEY: z.string().optional(),
 
     // Frontend
     FRONTEND_URL: z.string().default('http://localhost:5173'),
@@ -105,9 +104,8 @@ export const env = {
     // Encryption
     encryptionKey: envVars.ENCRYPTION_KEY,
 
-    // API Keys
-    anthropicApiKey: envVars.ANTHROPIC_API_KEY,
-    perplexityApiKey: envVars.PERPLEXITY_API_KEY,
+    // AI Integration (Manus Max)
+    manusApiKey: envVars.MANUS_API_KEY,
 
     // CORS
     frontendUrl: envVars.FRONTEND_URL,

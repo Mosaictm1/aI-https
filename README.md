@@ -54,7 +54,7 @@ docker-compose -f docker-compose.dev.yml up
 | Backend | Node.js + Express + Prisma |
 | Database | Supabase (PostgreSQL) |
 | Cache | Redis |
-| AI | Claude API (Anthropic) |
+| AI | Manus Max API |
 | Hosting | Vercel + Render |
 
 ## 📁 هيكل المشروع

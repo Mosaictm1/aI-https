@@ -21,7 +21,7 @@
 
 ### الخدمات الخارجية
 
-- **Anthropic API**: لتحليل AI
+- **Manus Max API**: لتحليل AI - [الوثائق](https://open.manus.ai/docs)
 - **SMTP**: لإرسال البريد
 - **S3/R2**: لتخزين الملفات (اختياري)
 
@@ -223,7 +223,7 @@ JWT_SECRET=your-super-secret-jwt-key-min-32-chars
 ENCRYPTION_KEY=your-32-character-encryption-key
 
 # AI
-ANTHROPIC_API_KEY=your-anthropic-api-key
+MANUS_API_KEY=your-manus-api-key
 
 # Frontend URL (for CORS)
 FRONTEND_URL=https://your-app.vercel.app
@@ -473,7 +473,7 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
       - JWT_SECRET=${JWT_SECRET}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MANUS_API_KEY=${MANUS_API_KEY}
     depends_on:
       - db
       - redis

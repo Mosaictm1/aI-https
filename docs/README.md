@@ -73,7 +73,7 @@
 │     PostgreSQL     │     Redis     │     Bull Queue         │
 ├─────────────────────────────────────────────────────────────┤
 │                    External Services                         │
-│        n8n API    │    Claude AI    │    OpenAPI Parser      │
+│        n8n API    │    Manus Max    │    OpenAPI Parser      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -134,7 +134,7 @@ npm run dev
 - **Database**: PostgreSQL + Prisma ORM
 - **Cache**: Redis
 - **Queue**: Bull
-- **AI**: Claude API (Anthropic)
+- **AI**: Manus Max API
 - **Testing**: Jest + Supertest
 
 ### Frontend

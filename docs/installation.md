@@ -17,7 +17,7 @@
 ### حسابات مطلوبة
 
 - **حساب n8n**: [n8n Cloud](https://n8n.io/) أو Self-hosted
-- **حساب Anthropic**: للحصول على Claude API Key (اختياري للـ AI features)
+- **حساب Manus**: للحصول على Manus API Key (اختياري للـ AI features) - [الحصول على المفتاح](http://manus.im/app?show_settings=integrations&app_name=api)
 
 ---
 
@@ -96,7 +96,7 @@ N8N_API_URL="https://your-n8n-instance.com/api/v1"
 N8N_API_KEY="your-n8n-api-key"
 
 # AI (Optional)
-ANTHROPIC_API_KEY="your-anthropic-api-key"
+MANUS_API_KEY="your-manus-api-key"
 
 # Encryption
 ENCRYPTION_KEY="your-32-character-encryption-key"
@@ -241,7 +241,7 @@ PORT=4000
 DATABASE_URL=your_supabase_connection_string
 DIRECT_URL=your_supabase_direct_connection
 JWT_SECRET=your_production_secret
-ANTHROPIC_API_KEY=your_api_key
+MANUS_API_KEY=your_manus_api_key
 ENCRYPTION_KEY=your_32_char_key
 FRONTEND_URL=https://your-app.vercel.app
 ```
