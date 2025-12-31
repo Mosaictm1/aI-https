@@ -81,7 +81,7 @@ interface RequestLog {
 
 export default function AIFixer() {
     const { data: workflowsData } = useWorkflows();
-    const { analyze, isAnalyzing, build, isBuilding } = useAIAnalysis();
+    const { analyze, isAnalyzing, build, isBuilding, smartBuild, isSmartBuilding, smartBuildResult } = useAIAnalysis();
     const { data: instancesData } = useInstances();
 
     const instances = instancesData?.items || [];
@@ -199,15 +199,28 @@ export default function AIFixer() {
 
         setRequestLogs(prev => [newLog, ...prev]);
         setActiveRequestId(requestId);
+        setBuildResult(null); // Clear previous result
 
         try {
-            const response = await build({
+            // Use smartBuild for research + build + credentials flow
+            const response = await smartBuild({
                 idea: buildIdea,
                 instanceId: selectedInstance || undefined,
-                autoCreate: !!selectedInstance,
             });
 
-            setBuildResult(response);
+            // Map smartBuildResult to BuildResult format for display
+            if (response.workflow) {
+                setBuildResult({
+                    success: response.success,
+                    workflow: response.workflow,
+                    explanation: response.explanation || '',
+                    requiredCredentials: response.requiredCredentials?.map(c => c.service),
+                    n8nWorkflowId: response.n8nWorkflowId,
+                    n8nWorkflowUrl: response.n8nWorkflowUrl,
+                    // Store the full smart result for later use
+                    _smartResult: response as unknown,
+                } as BuildResult);
+            }
 
             // Update log
             setRequestLogs(prev => prev.map(log =>
@@ -216,7 +229,7 @@ export default function AIFixer() {
                     : log
             ));
         } catch (error) {
-            console.error('Build failed:', error);
+            console.error('Smart build failed:', error);
             setRequestLogs(prev => prev.map(log =>
                 log.id === requestId
                     ? { ...log, status: 'failed', completedAt: new Date() }

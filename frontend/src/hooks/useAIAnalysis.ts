@@ -134,6 +134,64 @@ const buildWorkflow = async (input: BuildWorkflowInput): Promise<BuildWorkflowRe
     return response.data.data;
 };
 
+// Smart Build Workflow types
+export interface ServiceResearch {
+    serviceName: string;
+    apiBaseUrl?: string;
+    authType: string;
+    endpoints: Array<{
+        method: string;
+        path: string;
+        description: string;
+    }>;
+    documentationUrl?: string;
+}
+
+export interface SmartBuildStep {
+    step: 'extracting' | 'researching' | 'building' | 'awaiting_credentials' | 'testing' | 'completed' | 'failed';
+    message: string;
+    progress: number;
+}
+
+export interface CredentialField {
+    name: string;
+    type: 'text' | 'password' | 'url';
+    required: boolean;
+    placeholder?: string;
+}
+
+export interface RequiredCredential {
+    service: string;
+    credentialType: string;
+    fields: CredentialField[];
+}
+
+export interface SmartBuildResult {
+    success: boolean;
+    currentStep: SmartBuildStep;
+    extractedServices?: string[];
+    servicesResearch?: ServiceResearch[];
+    workflow?: {
+        name: string;
+        nodes: unknown[];
+        connections: unknown;
+    };
+    requiredCredentials?: RequiredCredential[];
+    explanation?: string;
+    testResult?: {
+        passed: boolean;
+        message: string;
+        outputSample?: unknown;
+    };
+    n8nWorkflowId?: string;
+    n8nWorkflowUrl?: string;
+}
+
+const smartBuildWorkflow = async (input: { idea: string; instanceId?: string }): Promise<SmartBuildResult> => {
+    const response = await api.post('/ai/smart-build', input);
+    return response.data.data;
+};
+
 // ==================== Hook ====================
 
 export const useAIAnalysis = () => {
@@ -174,6 +232,15 @@ export const useAIAnalysis = () => {
 
     const buildMutation = useMutation({
         mutationFn: buildWorkflow,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['workflows'] });
+        },
+    });
+
+    // ==================== Smart Build Mutation ====================
+
+    const smartBuildMutation = useMutation({
+        mutationFn: smartBuildWorkflow,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['workflows'] });
         },
@@ -220,6 +287,10 @@ export const useAIAnalysis = () => {
         return buildMutation.mutateAsync(input);
     }, [buildMutation]);
 
+    const smartBuild = useCallback(async (input: { idea: string; instanceId?: string }) => {
+        return smartBuildMutation.mutateAsync(input);
+    }, [smartBuildMutation]);
+
     const clearAnalysis = useCallback(() => {
         setCurrentAnalysis(null);
         setSelectedSuggestion(null);
@@ -251,6 +322,11 @@ export const useAIAnalysis = () => {
         isBuilding: buildMutation.isPending,
         buildResult: buildMutation.data,
         buildError: buildMutation.error,
+
+        smartBuild,
+        isSmartBuilding: smartBuildMutation.isPending,
+        smartBuildResult: smartBuildMutation.data,
+        smartBuildError: smartBuildMutation.error,
 
         // Queries
         useAnalysisHistory,
