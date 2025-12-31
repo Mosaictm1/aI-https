@@ -82,6 +82,65 @@ export interface WorkflowBuildResult {
     n8nWorkflowId?: string;
 }
 
+// ==================== Smart Workflow Builder Types ====================
+
+export interface ServiceResearch {
+    serviceName: string;
+    apiBaseUrl?: string;
+    authType: string; // 'api_key', 'oauth2', 'bearer', etc.
+    endpoints: Array<{
+        method: string;
+        path: string;
+        description: string;
+        requiredParams?: string[];
+    }>;
+    documentationUrl?: string;
+    exampleCode?: string;
+}
+
+export interface SmartBuildStep {
+    step: 'extracting' | 'researching' | 'building' | 'awaiting_credentials' | 'testing' | 'completed' | 'failed';
+    message: string;
+    progress: number; // 0-100
+}
+
+export interface SmartBuildRequest {
+    idea: string;
+    instanceId?: string;
+    n8n?: N8nAccess;
+}
+
+export interface SmartBuildResult {
+    success: boolean;
+    currentStep: SmartBuildStep;
+    extractedServices?: string[];
+    servicesResearch?: ServiceResearch[];
+    workflow?: {
+        name: string;
+        nodes: unknown[];
+        connections: Record<string, unknown>;
+        settings?: Record<string, unknown>;
+    };
+    requiredCredentials?: Array<{
+        service: string;
+        credentialType: string;
+        fields: Array<{
+            name: string;
+            type: 'text' | 'password' | 'url';
+            required: boolean;
+            placeholder?: string;
+        }>;
+    }>;
+    explanation?: string;
+    testResult?: {
+        passed: boolean;
+        message: string;
+        outputSample?: unknown;
+    };
+    n8nWorkflowId?: string;
+    n8nWorkflowUrl?: string;
+}
+
 // ==================== Client Class ====================
 
 export class ManusClient {
@@ -290,6 +349,219 @@ export class ManusClient {
         }
 
         return completedTask.result;
+    }
+
+    // ==================== Smart Workflow Builder ====================
+
+    /**
+     * Step 1: Extract service names from user's idea
+     */
+    async extractServices(idea: string): Promise<string[]> {
+        const prompt = `Extract all API services, platforms, or tools mentioned in this workflow idea.
+Return ONLY a JSON array of service names, nothing else.
+
+Idea: "${idea}"
+
+Examples of services: Instagram API, Twitter/X API, Wavespeed AI, OpenAI, Stripe, Gmail, Slack, Telegram, etc.
+
+Return format: ["service1", "service2", ...]`;
+
+        try {
+            const result = await this.executeTask(prompt, 'manus-1.6-max');
+            const jsonMatch = result.match(/\[[\s\S]*?\]/);
+            if (jsonMatch) {
+                return JSON.parse(jsonMatch[0]);
+            }
+            return [];
+        } catch (error) {
+            logger.error('Failed to extract services:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Step 2: Research documentation for a service
+     */
+    async researchService(serviceName: string): Promise<ServiceResearch> {
+        const prompt = `Research the API documentation for "${serviceName}" and provide:
+1. The official API base URL
+2. Authentication type (api_key, oauth2, bearer, basic, etc.)
+3. Main endpoints with methods and descriptions
+4. Documentation URL
+
+Return as JSON:
+{
+  "serviceName": "${serviceName}",
+  "apiBaseUrl": "https://...",
+  "authType": "api_key",
+  "endpoints": [
+    { "method": "POST", "path": "/endpoint", "description": "Description", "requiredParams": ["param1"] }
+  ],
+  "documentationUrl": "https://..."
+}`;
+
+        try {
+            const result = await this.executeTask(prompt, 'manus-1.6-max');
+            const jsonMatch = result.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                return JSON.parse(jsonMatch[0]);
+            }
+            return {
+                serviceName,
+                authType: 'api_key',
+                endpoints: [],
+            };
+        } catch (error) {
+            logger.error(`Failed to research ${serviceName}:`, error);
+            return {
+                serviceName,
+                authType: 'api_key',
+                endpoints: [],
+            };
+        }
+    }
+
+    /**
+     * Smart Workflow Builder - Full multi-step process
+     */
+    async smartBuildWorkflow(request: SmartBuildRequest): Promise<SmartBuildResult> {
+        logger.info('🚀 Starting smart workflow build...');
+
+        // Step 1: Extract services
+        logger.info('📋 Step 1: Extracting services from idea...');
+        const extractedServices = await this.extractServices(request.idea);
+        logger.info(`Found services: ${extractedServices.join(', ')}`);
+
+        if (extractedServices.length === 0) {
+            return {
+                success: false,
+                currentStep: {
+                    step: 'failed',
+                    message: 'لم أتمكن من تحديد الخدمات المذكورة في فكرتك. يرجى ذكر أسماء المنصات بوضوح.',
+                    progress: 0,
+                },
+            };
+        }
+
+        // Step 2: Research each service
+        logger.info('🔍 Step 2: Researching service documentation...');
+        const servicesResearch: ServiceResearch[] = [];
+        for (const service of extractedServices) {
+            const research = await this.researchService(service);
+            servicesResearch.push(research);
+        }
+
+        // Step 3: Build workflow with research context
+        logger.info('🔧 Step 3: Building workflow...');
+        const workflowResult = await this.buildWorkflowWithResearch(request.idea, servicesResearch, request.n8n);
+
+        // Step 4: Determine required credentials
+        const requiredCredentials = this.buildCredentialsForm(servicesResearch);
+
+        return {
+            success: true,
+            currentStep: {
+                step: 'awaiting_credentials',
+                message: 'تم بناء الـ Workflow! يرجى إدخال الـ API Keys للاختبار.',
+                progress: 70,
+            },
+            extractedServices,
+            servicesResearch,
+            workflow: workflowResult.workflow,
+            requiredCredentials,
+            explanation: workflowResult.explanation,
+        };
+    }
+
+    /**
+     * Build workflow with research context
+     */
+    private async buildWorkflowWithResearch(
+        idea: string,
+        research: ServiceResearch[],
+        n8n?: N8nAccess
+    ): Promise<WorkflowBuildResult> {
+        const researchContext = research.map(r => `
+### ${r.serviceName}
+- API Base: ${r.apiBaseUrl || 'Unknown'}
+- Auth: ${r.authType}
+- Endpoints: ${r.endpoints.map(e => `${e.method} ${e.path}`).join(', ')}
+`).join('\n');
+
+        const prompt = `أنت خبير n8n. ابنِ workflow كامل بناءً على:
+
+## فكرة المستخدم:
+${idea}
+
+## معلومات الـ APIs (من البحث):
+${researchContext}
+
+## متطلبات:
+1. استخدم HTTP Request nodes مع الـ endpoints الصحيحة
+2. اربط الـ nodes بشكل منطقي
+3. أضف Manual Trigger كبداية
+4. استخدم الـ authentication الصحيح لكل service
+
+أرجع JSON فقط:
+{
+  "success": true,
+  "workflow": {
+    "name": "اسم الـ workflow",
+    "nodes": [...],
+    "connections": {...}
+  },
+  "explanation": "شرح كيف يعمل",
+  "requiredCredentials": ["API Key for Service1", "API Key for Service2"]
+}`;
+
+        try {
+            const result = await this.executeTask(prompt, 'manus-1.6-max');
+            const jsonMatch = result.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                return JSON.parse(jsonMatch[0]);
+            }
+        } catch (error) {
+            logger.error('Failed to build workflow:', error);
+        }
+
+        return {
+            success: false,
+            workflow: { name: '', nodes: [], connections: {} },
+            explanation: 'فشل في بناء الـ Workflow',
+            requiredCredentials: [],
+        };
+    }
+
+    /**
+     * Build credentials form from research
+     */
+    private buildCredentialsForm(research: ServiceResearch[]): SmartBuildResult['requiredCredentials'] {
+        return research.map(r => ({
+            service: r.serviceName,
+            credentialType: r.authType,
+            fields: this.getFieldsForAuthType(r.authType, r.serviceName),
+        }));
+    }
+
+    private getFieldsForAuthType(authType: string, serviceName: string): Array<{
+        name: string;
+        type: 'text' | 'password' | 'url';
+        required: boolean;
+        placeholder?: string;
+    }> {
+        switch (authType) {
+            case 'oauth2':
+                return [
+                    { name: 'client_id', type: 'text', required: true, placeholder: 'Client ID' },
+                    { name: 'client_secret', type: 'password', required: true, placeholder: 'Client Secret' },
+                ];
+            case 'bearer':
+            case 'api_key':
+            default:
+                return [
+                    { name: 'api_key', type: 'password', required: true, placeholder: `${serviceName} API Key` },
+                ];
+        }
     }
 
     // ==================== Fix Node Feature ====================

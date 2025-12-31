@@ -19,6 +19,9 @@ import type {
 } from './ai-analysis.schema.js';
 import { logger } from '../../config/logger.js';
 
+// Create manus client instance
+const manusClient = createManusClient();
+
 // Helper to ensure JSON compatibility with Prisma
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const toJson = (value: unknown): any => JSON.parse(JSON.stringify(value));
@@ -217,6 +220,39 @@ export const buildWorkflow = async (
         ...buildResult,
         workflowId: createdWorkflowId,
     };
+};
+
+// ==================== Smart Build Workflow ====================
+
+export const smartBuildWorkflow = async (
+    userId: string,
+    input: { idea: string; instanceId?: string }
+) => {
+    const { idea, instanceId } = input;
+
+    // Build n8n access if instance provided
+    let n8nAccess;
+    if (instanceId) {
+        const instance = await prisma.instance.findFirst({
+            where: { id: instanceId, userId },
+        });
+        if (instance) {
+            n8nAccess = {
+                instanceUrl: instance.url,
+                apiKey: decrypt(instance.apiKey),
+            };
+        }
+    }
+
+    logger.info(`🧠 Smart building workflow from idea: ${idea.substring(0, 50)}...`);
+
+    const result = await manusClient.smartBuildWorkflow({
+        idea,
+        instanceId,
+        n8n: n8nAccess,
+    });
+
+    return result;
 };
 
 // ==================== Apply Node Fix ====================

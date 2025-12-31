@@ -41,6 +41,16 @@ router.post(
 );
 
 /**
+ * @route POST /api/v1/ai/smart-build
+ * @desc Smart build workflow: research + build + credentials form
+ * @body { idea, instanceId? }
+ */
+router.post(
+    '/smart-build',
+    controller.smartBuildWorkflow
+);
+
+/**
  * @route POST /api/v1/ai/apply-fix
  * @desc Apply a suggested fix to a workflow node
  * @body { workflowId, n8nWorkflowId, nodeId, fix }

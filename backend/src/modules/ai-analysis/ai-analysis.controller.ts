@@ -76,6 +76,29 @@ export const applyFix = async (
     }
 };
 
+// ==================== Smart Build Workflow ====================
+
+export const smartBuildWorkflow = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        const userId = (req as AuthenticatedRequest).user.id;
+        const result = await aiAnalysisService.smartBuildWorkflow(userId, req.body);
+
+        sendSuccess(
+            res,
+            result,
+            result.success
+                ? 'تم بناء الـ Workflow بنجاح'
+                : 'يرجى إدخال الـ API Keys للمتابعة'
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
 // ==================== Get Analysis History ====================
 
 export const getAnalysisHistory = async (
