@@ -55,7 +55,8 @@ export const fixNode = async (
     }
 
     // Check if it's an HTTP Request node
-    if (!node.type.includes('httpRequest')) {
+    const nodeTypeLower = node.type.toLowerCase();
+    if (!nodeTypeLower.includes('httprequest') && !nodeTypeLower.includes('http')) {
         throw new BadRequestError('This feature only works with HTTP Request nodes');
     }
 
