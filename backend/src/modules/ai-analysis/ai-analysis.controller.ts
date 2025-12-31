@@ -19,18 +19,58 @@ interface AuthenticatedRequest extends Request {
     user: AuthenticatedUser;
 }
 
-// ==================== Analyze Error ====================
+// ==================== Fix Node ====================
 
-export const analyzeError = async (
+export const fixNode = async (
     req: Request,
     res: Response,
     next: NextFunction
 ): Promise<void> => {
     try {
         const userId = (req as AuthenticatedRequest).user.id;
-        const result = await aiAnalysisService.analyzeError(userId, req.body);
+        const result = await aiAnalysisService.fixNode(userId, req.body);
 
-        sendSuccess(res, result, 'Error analyzed successfully');
+        sendSuccess(res, result, result.success
+            ? 'تم تحليل المشكلة بنجاح'
+            : 'فشل في تحليل المشكلة'
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ==================== Build Workflow ====================
+
+export const buildWorkflow = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        const userId = (req as AuthenticatedRequest).user.id;
+        const result = await aiAnalysisService.buildWorkflow(userId, req.body);
+
+        sendSuccess(res, result, result.success
+            ? 'تم بناء الـ Workflow بنجاح'
+            : 'فشل في بناء الـ Workflow'
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ==================== Apply Fix ====================
+
+export const applyFix = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        const userId = (req as AuthenticatedRequest).user.id;
+        const result = await aiAnalysisService.applyNodeFix(userId, req.body);
+
+        sendSuccess(res, result, result.message);
     } catch (error) {
         next(error);
     }
@@ -53,7 +93,7 @@ export const getAnalysisHistory = async (
             limit ? parseInt(limit as string, 10) : undefined
         );
 
-        sendSuccess(res, analyses, 'Analysis history retrieved');
+        sendSuccess(res, analyses, 'تم جلب سجل التحليلات');
     } catch (error) {
         next(error);
     }
@@ -72,41 +112,21 @@ export const getAnalysis = async (
 
         const analysis = await aiAnalysisService.getAnalysis(userId, analysisId);
 
-        sendSuccess(res, analysis, 'Analysis retrieved');
+        sendSuccess(res, analysis, 'تم جلب التحليل');
     } catch (error) {
         next(error);
     }
 };
 
-// ==================== Apply Fix ====================
+// ==================== Legacy: Analyze Error (maps to fixNode) ====================
 
-export const applyFix = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-): Promise<void> => {
-    try {
-        const userId = (req as AuthenticatedRequest).user.id;
-        const result = await aiAnalysisService.applyFix(userId, req.body);
+export const analyzeError = fixNode;
 
-        sendSuccess(res, result, result.message);
-    } catch (error) {
-        next(error);
-    }
-};
-
-// ==================== Research API ====================
+// ==================== Legacy: Research API ====================
 
 export const researchApi = async (
-    req: Request,
+    _req: Request,
     res: Response,
-    next: NextFunction
 ): Promise<void> => {
-    try {
-        const result = await aiAnalysisService.researchApi(req.body);
-
-        sendSuccess(res, result, 'API research completed');
-    } catch (error) {
-        next(error);
-    }
+    sendSuccess(res, null, 'استخدم /ai/fix-node أو /ai/build-workflow بدلاً من هذا.');
 };

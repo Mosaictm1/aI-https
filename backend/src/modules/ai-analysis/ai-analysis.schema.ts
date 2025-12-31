@@ -18,6 +18,33 @@ export const analyzeErrorSchema = {
 
 export type AnalyzeErrorInput = z.infer<typeof analyzeErrorSchema.body>;
 
+// ==================== Fix Node ====================
+
+export const fixNodeSchema = {
+    body: z.object({
+        workflowId: z.string().uuid('Invalid workflow ID'),
+        nodeId: z.string().min(1, 'Node ID is required'),
+        errorMessage: z.string().min(1, 'Error message is required'),
+        applyFix: z.boolean().optional().default(false),
+    }),
+};
+
+export type FixNodeInput = z.infer<typeof fixNodeSchema.body>;
+
+// ==================== Build Workflow ====================
+
+export const buildWorkflowSchema = {
+    body: z.object({
+        idea: z.string().min(10, 'Please provide more details about your idea'),
+        services: z.array(z.string()).optional(),
+        additionalContext: z.string().optional(),
+        instanceId: z.string().uuid('Invalid instance ID').optional(),
+        autoCreate: z.boolean().optional().default(false),
+    }),
+};
+
+export type BuildWorkflowInput = z.infer<typeof buildWorkflowSchema.body>;
+
 // ==================== Apply Fix ====================
 
 export const applyFixSchema = {
@@ -26,10 +53,11 @@ export const applyFixSchema = {
         n8nWorkflowId: z.string().min(1, 'n8n workflow ID is required'),
         nodeId: z.string().min(1, 'Node ID is required'),
         fix: z.object({
-            id: z.string(),
-            type: z.enum(['parameter_change', 'header_add', 'auth_update', 'url_fix', 'body_fix']),
-            path: z.string().optional(),
-            value: z.unknown(),
+            url: z.string().optional(),
+            method: z.string().optional(),
+            headers: z.record(z.string()).optional(),
+            body: z.unknown().optional(),
+            parameters: z.record(z.unknown()).optional(),
         }),
     }),
 };

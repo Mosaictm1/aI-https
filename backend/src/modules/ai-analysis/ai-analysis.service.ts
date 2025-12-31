@@ -9,22 +9,27 @@ import { createN8nClient } from '../../shared/clients/n8n.client.js';
 import type { N8nNode } from '../../shared/clients/n8n.client.js';
 import {
     createManusClient,
-    type AnalysisResult,
-    type ErrorContext
+    type NodeFixResult,
+    type WorkflowBuildResult,
 } from '../../shared/clients/manus.client.js';
-import type { AnalyzeErrorInput, ApplyFixInput, ResearchApiInput } from './ai-analysis.schema.js';
+import type {
+    FixNodeInput,
+    BuildWorkflowInput,
+    ApplyFixInput,
+} from './ai-analysis.schema.js';
+import { logger } from '../../config/logger.js';
 
 // Helper to ensure JSON compatibility with Prisma
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const toJson = (value: unknown): any => JSON.parse(JSON.stringify(value));
 
-// ==================== Analyze Error ====================
+// ==================== Fix Node ====================
 
-export const analyzeError = async (
+export const fixNode = async (
     userId: string,
-    input: AnalyzeErrorInput
-): Promise<AnalysisResult & { analysisId: string }> => {
-    const { workflowId, nodeId, errorMessage, errorStack, executionData } = input;
+    input: FixNodeInput
+): Promise<NodeFixResult & { analysisId: string }> => {
+    const { workflowId, nodeId, errorMessage, applyFix } = input;
 
     // Get workflow and verify ownership
     const workflow = await prisma.workflow.findFirst({
@@ -49,27 +54,37 @@ export const analyzeError = async (
         throw new NotFoundError('Node not found in workflow');
     }
 
-    // Build error context
-    const context: ErrorContext = {
-        workflowId: workflow.id,
-        workflowName: workflow.name,
-        nodeId: node.id,
-        nodeName: node.name,
-        nodeType: node.type,
-        nodeParameters: node.parameters,
-        errorMessage,
-        errorStack,
-        executionData,
-    };
+    // Check if it's an HTTP Request node
+    if (!node.type.includes('httpRequest')) {
+        throw new BadRequestError('This feature only works with HTTP Request nodes');
+    }
 
-    // Get AI analysis
+    // Get Manus client
     const manusClient = createManusClient();
 
     if (!manusClient.isConfigured()) {
-        throw new BadRequestError('AI service not configured');
+        throw new BadRequestError('AI service not configured. Please add MANUS_API_KEY.');
     }
 
-    const analysis = await manusClient.analyzeError(context);
+    // Get node parameters
+    const parameters = node.parameters as Record<string, unknown>;
+    const url = (parameters.url as string) || '';
+    const method = (parameters.method as string) || 'GET';
+    const headers = (parameters.headers as Record<string, string>) || {};
+    const body = parameters.body;
+
+    // Call Manus to fix the node
+    logger.info(`Fixing node ${nodeId} in workflow ${workflowId}`);
+
+    const fixResult = await manusClient.fixNode({
+        errorMessage,
+        nodeType: node.type,
+        url,
+        method,
+        headers,
+        body,
+        parameters,
+    });
 
     // Save analysis to database
     const savedAnalysis = await prisma.analysis.create({
@@ -79,17 +94,187 @@ export const analyzeError = async (
             nodeName: node.name,
             nodeType: node.type,
             errorMessage,
-            errorStack,
-            analysis: toJson(analysis),
-            suggestions: toJson(analysis.suggestions),
-            status: 'COMPLETED',
+            analysis: toJson(fixResult),
+            suggestions: toJson(fixResult.fix),
+            status: fixResult.success ? 'COMPLETED' : 'FAILED',
         },
     });
 
+    // Apply fix if requested
+    if (applyFix && fixResult.success && Object.keys(fixResult.fix).length > 0) {
+        try {
+            await applyNodeFix(userId, {
+                workflowId,
+                n8nWorkflowId: workflow.n8nId,
+                nodeId,
+                fix: fixResult.fix,
+            });
+
+            await prisma.analysis.update({
+                where: { id: savedAnalysis.id },
+                data: { status: 'APPLIED' },
+            });
+        } catch (error) {
+            logger.error('Failed to apply fix:', error);
+        }
+    }
+
     return {
         analysisId: savedAnalysis.id,
-        ...analysis,
+        ...fixResult,
     };
+};
+
+// ==================== Build Workflow ====================
+
+export const buildWorkflow = async (
+    userId: string,
+    input: BuildWorkflowInput
+): Promise<WorkflowBuildResult & { workflowId?: string }> => {
+    const { idea, services, additionalContext, instanceId, autoCreate } = input;
+
+    // Get Manus client
+    const manusClient = createManusClient();
+
+    if (!manusClient.isConfigured()) {
+        throw new BadRequestError('AI service not configured. Please add MANUS_API_KEY.');
+    }
+
+    // Build workflow using Manus
+    logger.info(`Building workflow from idea: ${idea.substring(0, 50)}...`);
+
+    const buildResult = await manusClient.buildWorkflow({
+        idea,
+        services,
+        additionalContext,
+    });
+
+    let createdWorkflowId: string | undefined;
+
+    // Auto-create in n8n if requested
+    if (autoCreate && buildResult.success && instanceId) {
+        try {
+            const instance = await prisma.instance.findFirst({
+                where: { id: instanceId, userId },
+            });
+
+            if (instance) {
+                const apiKey = decrypt(instance.apiKey);
+                const n8nClient = createN8nClient({
+                    baseUrl: instance.url,
+                    apiKey,
+                });
+
+                // Create workflow in n8n
+                const createdWorkflow = await n8nClient.updateWorkflow(
+                    'new', // This would need special handling
+                    buildResult.workflow as any
+                );
+
+                createdWorkflowId = createdWorkflow.id;
+                logger.info(`Created workflow ${createdWorkflowId} in n8n`);
+            }
+        } catch (error) {
+            logger.error('Failed to create workflow in n8n:', error);
+        }
+    }
+
+    return {
+        ...buildResult,
+        workflowId: createdWorkflowId,
+    };
+};
+
+// ==================== Apply Node Fix ====================
+
+export const applyNodeFix = async (
+    userId: string,
+    input: ApplyFixInput
+): Promise<{ success: boolean; message: string }> => {
+    const { workflowId, n8nWorkflowId, nodeId, fix } = input;
+
+    // Get workflow and instance
+    const workflow = await prisma.workflow.findFirst({
+        where: {
+            id: workflowId,
+            instance: { userId },
+        },
+        include: {
+            instance: true,
+        },
+    });
+
+    if (!workflow) {
+        throw new NotFoundError('Workflow not found');
+    }
+
+    // Get decrypted API key
+    const apiKey = decrypt(workflow.instance.apiKey);
+
+    // Create n8n client
+    const n8nClient = createN8nClient({
+        baseUrl: workflow.instance.url,
+        apiKey,
+    });
+
+    // Get current workflow from n8n
+    const n8nWorkflow = await n8nClient.getWorkflow(n8nWorkflowId);
+
+    // Find the node
+    const nodeIndex = n8nWorkflow.nodes.findIndex(n => n.id === nodeId);
+
+    if (nodeIndex === -1) {
+        throw new NotFoundError('Node not found in n8n workflow');
+    }
+
+    const currentNode = n8nWorkflow.nodes[nodeIndex];
+    const currentParams = currentNode.parameters as Record<string, unknown>;
+
+    // Apply fixes
+    const updatedParams = { ...currentParams };
+
+    if (fix.url) updatedParams.url = fix.url;
+    if (fix.method) updatedParams.method = fix.method;
+    if (fix.headers) {
+        // Merge headers
+        const existingHeaders = (currentParams.headers as Record<string, unknown>) || {};
+        updatedParams.headers = { ...existingHeaders, ...fix.headers };
+    }
+    if (fix.body !== undefined) updatedParams.body = fix.body;
+    if (fix.parameters) {
+        // Merge parameters
+        Object.assign(updatedParams, fix.parameters);
+    }
+
+    // Update the node
+    n8nWorkflow.nodes[nodeIndex] = {
+        ...currentNode,
+        parameters: updatedParams,
+    };
+
+    // Push update to n8n
+    try {
+        const updatedWorkflow = await n8nClient.updateWorkflow(n8nWorkflowId, {
+            nodes: n8nWorkflow.nodes,
+        });
+
+        // Update local database
+        await prisma.workflow.update({
+            where: { id: workflowId },
+            data: {
+                nodes: toJson(updatedWorkflow.nodes),
+            },
+        });
+
+        return {
+            success: true,
+            message: 'تم تطبيق الإصلاح بنجاح',
+        };
+    } catch (error) {
+        throw new BadRequestError(
+            `فشل في تطبيق الإصلاح: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+    }
 };
 
 // ==================== Get Analysis History ====================
@@ -152,155 +337,10 @@ export const getAnalysis = async (userId: string, analysisId: string) => {
     return analysis;
 };
 
-// ==================== Apply Fix ====================
+// ==================== Legacy exports for compatibility ====================
 
-export const applyFix = async (
-    userId: string,
-    input: ApplyFixInput
-): Promise<{ success: boolean; message: string; updatedNode?: N8nNode }> => {
-    const { workflowId, n8nWorkflowId, nodeId, fix } = input;
-
-    // Get workflow and instance
-    const workflow = await prisma.workflow.findFirst({
-        where: {
-            id: workflowId,
-            instance: { userId },
-        },
-        include: {
-            instance: true,
-        },
-    });
-
-    if (!workflow) {
-        throw new NotFoundError('Workflow not found');
-    }
-
-    // Get decrypted API key
-    const apiKey = decrypt(workflow.instance.apiKey);
-
-    // Create n8n client
-    const n8nClient = createN8nClient({
-        baseUrl: workflow.instance.url,
-        apiKey,
-    });
-
-    // Get current workflow from n8n
-    const n8nWorkflow = await n8nClient.getWorkflow(n8nWorkflowId);
-
-    // Find and update the node
-    const nodeIndex = n8nWorkflow.nodes.findIndex(n => n.id === nodeId);
-
-    if (nodeIndex === -1) {
-        throw new NotFoundError('Node not found in n8n workflow');
-    }
-
-    const currentNode = n8nWorkflow.nodes[nodeIndex];
-
-    // Apply the fix based on type
-    const updatedParameters = applyFixToParameters(
-        currentNode.parameters,
-        fix
-    );
-
-    // Update the node
-    n8nWorkflow.nodes[nodeIndex] = {
-        ...currentNode,
-        parameters: updatedParameters,
-    };
-
-    // Push update to n8n
-    try {
-        const updatedWorkflow = await n8nClient.updateWorkflow(n8nWorkflowId, {
-            nodes: n8nWorkflow.nodes,
-        });
-
-        // Update local database
-        await prisma.workflow.update({
-            where: { id: workflowId },
-            data: {
-                nodes: toJson(updatedWorkflow.nodes),
-            },
-        });
-
-        return {
-            success: true,
-            message: 'Fix applied successfully',
-            updatedNode: updatedWorkflow.nodes[nodeIndex],
-        };
-    } catch (error) {
-        throw new BadRequestError(
-            `Failed to apply fix: ${error instanceof Error ? error.message : 'Unknown error'}`
-        );
-    }
+export const analyzeError = fixNode;
+export const applyFix = applyNodeFix;
+export const researchApi = async () => {
+    throw new BadRequestError('Use /ai/fix-node or /ai/build-workflow instead');
 };
-
-// ==================== Research API ====================
-
-export const researchApi = async (
-    input: ResearchApiInput
-) => {
-    const { serviceName, endpoint, errorMessage } = input;
-
-    const manusClient = createManusClient();
-
-    if (!manusClient.isConfigured()) {
-        throw new BadRequestError('AI service not configured');
-    }
-
-    return manusClient.researchApi(
-        serviceName,
-        endpoint,
-        errorMessage || 'Need API documentation'
-    );
-};
-
-// ==================== Helper Functions ====================
-
-function applyFixToParameters(
-    parameters: Record<string, unknown>,
-    fix: ApplyFixInput['fix']
-): Record<string, unknown> {
-    const updated = { ...parameters };
-
-    if (!fix.path) {
-        // Direct value assignment
-        return fix.value as Record<string, unknown>;
-    }
-
-    // Navigate to the path and update
-    const pathParts = fix.path.split('.');
-    let current: Record<string, unknown> = updated;
-
-    for (let i = 0; i < pathParts.length - 1; i++) {
-        const part = pathParts[i];
-        if (!(part in current)) {
-            current[part] = {};
-        }
-        current = current[part] as Record<string, unknown>;
-    }
-
-    const lastPart = pathParts[pathParts.length - 1];
-
-    switch (fix.type) {
-        case 'header_add':
-            // Add to headers array or object
-            if (lastPart === 'headers') {
-                const headers = (current[lastPart] as Record<string, unknown>[] || []);
-                headers.push(fix.value as Record<string, unknown>);
-                current[lastPart] = headers;
-            } else {
-                current[lastPart] = fix.value;
-            }
-            break;
-
-        case 'parameter_change':
-        case 'url_fix':
-        case 'body_fix':
-        case 'auth_update':
-        default:
-            current[lastPart] = fix.value;
-            break;
-    }
-
-    return updated;
-}

@@ -5,9 +5,9 @@
 import { Router } from 'express';
 import { authenticate, validate } from '../../shared/middleware/index.js';
 import {
-    analyzeErrorSchema,
+    fixNodeSchema,
+    buildWorkflowSchema,
     applyFixSchema,
-    researchApiSchema,
 } from './ai-analysis.schema.js';
 import * as controller from './ai-analysis.controller.js';
 
@@ -16,21 +16,46 @@ const router = Router();
 // All routes require authentication
 router.use(authenticate);
 
-// ==================== Routes ====================
+// ==================== Main Routes ====================
 
 /**
- * @route POST /api/v1/ai/analyze
- * @desc Analyze a workflow error using AI
+ * @route POST /api/v1/ai/fix-node
+ * @desc Fix a broken HTTP Request node using AI
+ * @body { workflowId, nodeId, errorMessage, applyFix? }
  */
 router.post(
-    '/analyze',
-    validate(analyzeErrorSchema),
-    controller.analyzeError
+    '/fix-node',
+    validate(fixNodeSchema),
+    controller.fixNode
 );
 
 /**
+ * @route POST /api/v1/ai/build-workflow
+ * @desc Build a workflow from user idea using AI
+ * @body { idea, services?, additionalContext?, instanceId?, autoCreate? }
+ */
+router.post(
+    '/build-workflow',
+    validate(buildWorkflowSchema),
+    controller.buildWorkflow
+);
+
+/**
+ * @route POST /api/v1/ai/apply-fix
+ * @desc Apply a suggested fix to a workflow node
+ * @body { workflowId, n8nWorkflowId, nodeId, fix }
+ */
+router.post(
+    '/apply-fix',
+    validate(applyFixSchema),
+    controller.applyFix
+);
+
+// ==================== History Routes ====================
+
+/**
  * @route GET /api/v1/ai/history
- * @desc Get analysis history
+ * @desc Get AI analysis history
  */
 router.get('/history', controller.getAnalysisHistory);
 
@@ -40,25 +65,10 @@ router.get('/history', controller.getAnalysisHistory);
  */
 router.get('/analysis/:analysisId', controller.getAnalysis);
 
-/**
- * @route POST /api/v1/ai/apply-fix
- * @desc Apply a suggested fix to a workflow node
- */
-router.post(
-    '/apply-fix',
-    validate(applyFixSchema),
-    controller.applyFix
-);
+// ==================== Legacy Routes (for compatibility) ====================
 
-/**
- * @route POST /api/v1/ai/research
- * @desc Research API documentation for a service
- */
-router.post(
-    '/research',
-    validate(researchApiSchema),
-    controller.researchApi
-);
+router.post('/analyze', validate(fixNodeSchema), controller.analyzeError);
+router.post('/research', controller.researchApi);
 
 // ==================== Exports ====================
 
