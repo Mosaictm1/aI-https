@@ -123,16 +123,30 @@ export class ManusClient {
         }
 
         try {
+            logger.info('Creating Manus task with prompt length: ' + request.prompt.length);
+
             const response = await this.client.post('/tasks', {
                 prompt: request.prompt,
                 agentProfile: request.agentProfile || this.defaultProfile,
             });
 
-            return response.data;
+            logger.info('Manus API response: ' + JSON.stringify(response.data).substring(0, 500));
+
+            // Handle different response structures
+            const taskData = response.data.data || response.data;
+
+            if (!taskData || !taskData.id) {
+                logger.error('Invalid Manus response - no task ID: ' + JSON.stringify(response.data));
+                throw new Error('Manus API did not return a task ID');
+            }
+
+            return taskData;
         } catch (error) {
             if (axios.isAxiosError(error)) {
+                logger.error('Manus API error: ' + JSON.stringify(error.response?.data));
                 throw new Error(
                     error.response?.data?.error ||
+                    error.response?.data?.message ||
                     error.message ||
                     'Failed to create Manus task'
                 );
