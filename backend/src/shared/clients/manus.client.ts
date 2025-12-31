@@ -479,7 +479,8 @@ Return as JSON:
     private async buildWorkflowWithResearch(
         idea: string,
         research: ServiceResearch[],
-        n8n?: N8nAccess
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        _n8n?: N8nAccess
     ): Promise<WorkflowBuildResult> {
         const researchContext = research.map(r => `
 ### ${r.serviceName}
