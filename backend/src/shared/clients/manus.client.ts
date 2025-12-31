@@ -20,7 +20,8 @@ export interface ManusTaskResponse {
     status: 'pending' | 'running' | 'completed' | 'failed';
     result?: string;
     error?: string;
-    createdAt: string;
+    task_url?: string;
+    createdAt?: string;
     completedAt?: string;
 }
 
@@ -133,14 +134,24 @@ export class ManusClient {
             logger.info('Manus API response: ' + JSON.stringify(response.data).substring(0, 500));
 
             // Handle different response structures
-            const taskData = response.data.data || response.data;
+            const rawData = response.data.data || response.data;
 
-            if (!taskData || !taskData.id) {
+            // Manus API returns task_id, normalize to id
+            const taskId = rawData.task_id || rawData.id;
+
+            if (!taskId) {
                 logger.error('Invalid Manus response - no task ID: ' + JSON.stringify(response.data));
                 throw new Error('Manus API did not return a task ID');
             }
 
-            return taskData;
+            // Normalize response to have consistent id field
+            return {
+                id: taskId,
+                status: rawData.status || 'pending',
+                result: rawData.result,
+                error: rawData.error,
+                task_url: rawData.task_url,
+            };
         } catch (error) {
             if (axios.isAxiosError(error)) {
                 logger.error('Manus API error: ' + JSON.stringify(error.response?.data));
@@ -161,7 +172,16 @@ export class ManusClient {
     async getTask(taskId: string): Promise<ManusTaskResponse> {
         try {
             const response = await this.client.get(`/tasks/${taskId}`);
-            return response.data;
+            const rawData = response.data.data || response.data;
+
+            // Normalize task_id to id
+            return {
+                id: rawData.task_id || rawData.id || taskId,
+                status: rawData.status || 'pending',
+                result: rawData.result,
+                error: rawData.error,
+                task_url: rawData.task_url,
+            };
         } catch (error) {
             if (axios.isAxiosError(error)) {
                 throw new Error(
