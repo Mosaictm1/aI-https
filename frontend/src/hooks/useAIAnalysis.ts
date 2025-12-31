@@ -107,6 +107,33 @@ const researchApi = async (
     return response.data.data;
 };
 
+// Build Workflow types
+interface BuildWorkflowInput {
+    idea: string;
+    instanceId?: string;
+    services?: string[];
+    additionalContext?: string;
+    autoCreate?: boolean;
+}
+
+interface BuildWorkflowResult {
+    success: boolean;
+    workflow?: {
+        name: string;
+        nodes: unknown[];
+        connections: unknown;
+    };
+    explanation: string;
+    requiredCredentials?: string[];
+    n8nWorkflowId?: string;
+    n8nWorkflowUrl?: string;
+}
+
+const buildWorkflow = async (input: BuildWorkflowInput): Promise<BuildWorkflowResult> => {
+    const response = await api.post('/ai/build-workflow', input);
+    return response.data.data;
+};
+
 // ==================== Hook ====================
 
 export const useAIAnalysis = () => {
@@ -141,6 +168,15 @@ export const useAIAnalysis = () => {
     const researchMutation = useMutation({
         mutationFn: (params: { serviceName: string; endpoint: string; errorMessage?: string }) =>
             researchApi(params.serviceName, params.endpoint, params.errorMessage),
+    });
+
+    // ==================== Build Workflow Mutation ====================
+
+    const buildMutation = useMutation({
+        mutationFn: buildWorkflow,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['workflows'] });
+        },
     });
 
     // ==================== Analysis History Query ====================
@@ -180,6 +216,10 @@ export const useAIAnalysis = () => {
         return researchMutation.mutateAsync({ serviceName, endpoint, errorMessage });
     }, [researchMutation]);
 
+    const build = useCallback(async (input: BuildWorkflowInput) => {
+        return buildMutation.mutateAsync(input);
+    }, [buildMutation]);
+
     const clearAnalysis = useCallback(() => {
         setCurrentAnalysis(null);
         setSelectedSuggestion(null);
@@ -206,6 +246,11 @@ export const useAIAnalysis = () => {
         research,
         isResearching: researchMutation.isPending,
         researchResult: researchMutation.data,
+
+        build,
+        isBuilding: buildMutation.isPending,
+        buildResult: buildMutation.data,
+        buildError: buildMutation.error,
 
         // Queries
         useAnalysisHistory,

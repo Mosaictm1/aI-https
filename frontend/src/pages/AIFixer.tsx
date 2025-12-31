@@ -52,6 +52,19 @@ interface FixResult {
     finalMessage?: string;
 }
 
+interface BuildResult {
+    success: boolean;
+    workflow?: {
+        name: string;
+        nodes: unknown[];
+        connections: unknown;
+    };
+    explanation: string;
+    requiredCredentials?: string[];
+    n8nWorkflowId?: string;
+    n8nWorkflowUrl?: string;
+}
+
 // ==================== Component ====================
 
 interface RequestLog {
@@ -66,7 +79,7 @@ interface RequestLog {
 
 export default function AIFixer() {
     const { data: workflowsData } = useWorkflows();
-    const { analyze, isAnalyzing } = useAIAnalysis();
+    const { analyze, isAnalyzing, build, isBuilding } = useAIAnalysis();
 
     const workflows = workflowsData?.items || [];
 
@@ -76,6 +89,8 @@ export default function AIFixer() {
     const [result, setResult] = useState<FixResult | null>(null);
     const [mode, setMode] = useState<'fix' | 'build'>('fix');
     const [buildIdea, setBuildIdea] = useState('');
+    const [buildResult, setBuildResult] = useState<BuildResult | null>(null);
+    const [selectedInstance, setSelectedInstance] = useState<string>('');
 
     // Request history and active request tracking
     const [requestLogs, setRequestLogs] = useState<RequestLog[]>([]);
@@ -166,8 +181,45 @@ export default function AIFixer() {
 
     const handleBuildWorkflow = async () => {
         if (!buildIdea) return;
-        // TODO: Implement build workflow
-        alert('ميزة بناء Workflow قادمة قريباً!');
+
+        // Create log entry
+        const requestId = `build-${Date.now()}`;
+        const newLog: RequestLog = {
+            id: requestId,
+            workflowName: 'New Workflow',
+            nodeName: buildIdea.substring(0, 30) + '...',
+            status: 'running',
+            startedAt: new Date(),
+        };
+
+        setRequestLogs(prev => [newLog, ...prev]);
+        setActiveRequestId(requestId);
+
+        try {
+            const response = await build({
+                idea: buildIdea,
+                instanceId: selectedInstance || undefined,
+                autoCreate: !!selectedInstance,
+            });
+
+            setBuildResult(response);
+
+            // Update log
+            setRequestLogs(prev => prev.map(log =>
+                log.id === requestId
+                    ? { ...log, status: response.success ? 'completed' : 'failed', completedAt: new Date() }
+                    : log
+            ));
+        } catch (error) {
+            console.error('Build failed:', error);
+            setRequestLogs(prev => prev.map(log =>
+                log.id === requestId
+                    ? { ...log, status: 'failed', completedAt: new Date() }
+                    : log
+            ));
+        } finally {
+            setActiveRequestId(null);
+        }
     };
 
     return (
@@ -464,11 +516,72 @@ export default function AIFixer() {
                         <Button
                             className="gap-2"
                             onClick={handleBuildWorkflow}
-                            disabled={!buildIdea}
+                            disabled={!buildIdea || isBuilding}
                         >
-                            <Wand2 className="h-4 w-4" />
-                            بناء الـ Workflow
+                            {isBuilding ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Wand2 className="h-4 w-4" />
+                            )}
+                            {isBuilding ? 'جاري البناء...' : 'بناء الـ Workflow'}
                         </Button>
+
+                        {/* Build Result */}
+                        {buildResult && (
+                            <div className={cn(
+                                "p-4 rounded-lg space-y-3",
+                                buildResult.success ? "bg-lime-green/10" : "bg-action-orange/10"
+                            )}>
+                                <div className="flex items-center gap-2">
+                                    {buildResult.success ? (
+                                        <CheckCircle className="h-5 w-5 text-lime-green" />
+                                    ) : (
+                                        <XCircle className="h-5 w-5 text-action-orange" />
+                                    )}
+                                    <span className="font-semibold text-white">
+                                        {buildResult.success ? 'تم بناء الـ Workflow بنجاح!' : 'فشل البناء'}
+                                    </span>
+                                </div>
+
+                                <p className="text-sm text-white/70">{buildResult.explanation}</p>
+
+                                {buildResult.workflow && (
+                                    <div className="p-3 bg-white/5 rounded-lg">
+                                        <h4 className="text-sm font-semibold text-white mb-2">
+                                            📋 {buildResult.workflow.name}
+                                        </h4>
+                                        <p className="text-xs text-white/50">
+                                            {buildResult.workflow.nodes?.length || 0} nodes
+                                        </p>
+                                    </div>
+                                )}
+
+                                {buildResult.n8nWorkflowUrl && (
+                                    <a
+                                        href={buildResult.n8nWorkflowUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 text-accent-yellow hover:underline text-sm"
+                                    >
+                                        <Zap className="h-4 w-4" />
+                                        فتح الـ Workflow في n8n
+                                    </a>
+                                )}
+
+                                {buildResult.requiredCredentials && buildResult.requiredCredentials.length > 0 && (
+                                    <div className="p-3 bg-accent-yellow/10 rounded-lg">
+                                        <h4 className="text-sm font-semibold text-accent-yellow mb-2">
+                                            🔐 Credentials مطلوبة:
+                                        </h4>
+                                        <ul className="list-disc list-inside text-sm text-white/70">
+                                            {buildResult.requiredCredentials.map((cred, i) => (
+                                                <li key={i}>{cred}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             )}
