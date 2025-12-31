@@ -3,7 +3,6 @@
 // ============================================
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
     Bot,
     Wand2,
@@ -14,7 +13,6 @@ import {
     Sparkles,
     Zap,
     FileCode,
-    ArrowRight,
     Plus,
     RefreshCw,
 } from 'lucide-react';
@@ -22,7 +20,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { useInstances } from '@/hooks/useInstances';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useAIAnalysis } from '@/hooks/useAIAnalysis';
 import { cn } from '@/lib/utils';
@@ -54,12 +51,9 @@ interface FixResult {
 // ==================== Component ====================
 
 export default function AIFixer() {
-    const navigate = useNavigate();
-    const { data: instancesData } = useInstances();
     const { data: workflowsData } = useWorkflows();
     const { analyze, isAnalyzing } = useAIAnalysis();
 
-    const instances = instancesData?.items || [];
     const workflows = workflowsData?.items || [];
 
     const [selectedWorkflow, setSelectedWorkflow] = useState<string>('');
@@ -82,7 +76,6 @@ export default function AIFixer() {
                 workflowId: selectedWorkflow,
                 nodeId: selectedNode,
                 errorMessage,
-                applyFix: true,
             });
             setResult(response as unknown as FixResult);
         } catch (error) {
@@ -200,7 +193,7 @@ export default function AIFixer() {
                                     placeholder="الصق رسالة الخطأ هنا..."
                                     className="min-h-[150px] bg-white/10 border-white/20 text-white placeholder:text-white/30"
                                     value={errorMessage}
-                                    onChange={(e) => setErrorMessage(e.target.value)}
+                                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setErrorMessage(e.target.value)}
                                 />
                             </div>
 
@@ -361,7 +354,7 @@ export default function AIFixer() {
                             placeholder="مثال: أريد workflow يأخذ صورة من Wavespeed AI ثم ينشرها على Instagram عبر Late API..."
                             className="min-h-[200px] bg-white/10 border-white/20 text-white placeholder:text-white/30"
                             value={buildIdea}
-                            onChange={(e) => setBuildIdea(e.target.value)}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBuildIdea(e.target.value)}
                         />
                         <Button
                             className="gap-2"
