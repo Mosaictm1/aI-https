@@ -94,6 +94,8 @@ export class ManusClient {
 
         if (!this.apiKey) {
             logger.warn('⚠️ Manus API key not configured');
+        } else {
+            logger.info(`✅ Manus API key configured (length: ${this.apiKey.length}, starts with: ${this.apiKey.substring(0, 5)}...)`);
         }
 
         this.client = axios.create({
