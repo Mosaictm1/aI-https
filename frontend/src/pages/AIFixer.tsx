@@ -147,16 +147,17 @@ export default function AIFixer() {
                                     اختر الـ Workflow
                                 </label>
                                 <select
-                                    className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-accent-yellow focus:outline-none"
+                                    className="w-full bg-[#1a2e35] border border-white/20 rounded-lg px-3 py-2 text-white focus:border-accent-yellow focus:outline-none cursor-pointer"
                                     value={selectedWorkflow}
-                                    onChange={(e) => {
+                                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                                         setSelectedWorkflow(e.target.value);
                                         setSelectedNode('');
                                     }}
+                                    style={{ colorScheme: 'dark' }}
                                 >
                                     <option value="">اختر Workflow...</option>
                                     {workflows.map((wf) => (
-                                        <option key={wf.id} value={wf.id} className="bg-dark-green">
+                                        <option key={wf.id} value={wf.id}>
                                             {wf.name}
                                         </option>
                                     ))}
@@ -170,13 +171,14 @@ export default function AIFixer() {
                                         اختر الـ HTTP Request Node
                                     </label>
                                     <select
-                                        className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-accent-yellow focus:outline-none"
+                                        className="w-full bg-[#1a2e35] border border-white/20 rounded-lg px-3 py-2 text-white focus:border-accent-yellow focus:outline-none cursor-pointer"
                                         value={selectedNode}
-                                        onChange={(e) => setSelectedNode(e.target.value)}
+                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedNode(e.target.value)}
+                                        style={{ colorScheme: 'dark' }}
                                     >
                                         <option value="">اختر Node...</option>
                                         {httpNodes.map((node: { id: string; name: string }) => (
-                                            <option key={node.id} value={node.id} className="bg-dark-green">
+                                            <option key={node.id} value={node.id}>
                                                 {node.name}
                                             </option>
                                         ))}
