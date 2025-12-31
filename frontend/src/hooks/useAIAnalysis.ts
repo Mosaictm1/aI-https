@@ -72,7 +72,7 @@ interface ApiResearchResult {
 // ==================== API Functions ====================
 
 const analyzeError = async (input: AnalyzeErrorInput): Promise<AnalysisResult> => {
-    const response = await api.post('/ai/analyze', input);
+    const response = await api.post('/ai/fix-node', input);
     return response.data.data;
 };
 
