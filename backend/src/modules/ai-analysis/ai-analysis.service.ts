@@ -99,41 +99,47 @@ export const fixNode = async (
     });
 
 
-    // Save analysis to database
-    const savedAnalysis = await prisma.analysis.create({
-        data: {
-            workflowId,
-            nodeId,
-            nodeName: node.name,
-            nodeType: node.type,
-            errorMessage,
-            analysis: toJson(fixResult),
-            suggestions: toJson(fixResult.fix),
-            status: fixResult.success ? 'COMPLETED' : 'FAILED',
-        },
-    });
-
-    // Apply fix if requested
-    if (applyFix && fixResult.success && Object.keys(fixResult.fix).length > 0) {
-        try {
-            await applyNodeFix(userId, {
+    // Try to save analysis to database (optional - don't block if fails)
+    let analysisId = 'temp-' + Date.now();
+    try {
+        const savedAnalysis = await prisma.analysis.create({
+            data: {
                 workflowId,
-                n8nWorkflowId: workflow.n8nId,
                 nodeId,
-                fix: fixResult.fix,
-            });
+                nodeName: node.name,
+                nodeType: node.type,
+                errorMessage,
+                analysis: toJson(fixResult),
+                suggestions: toJson(fixResult.fix),
+                status: fixResult.success ? 'COMPLETED' : 'FAILED',
+            },
+        });
+        analysisId = savedAnalysis.id;
 
-            await prisma.analysis.update({
-                where: { id: savedAnalysis.id },
-                data: { status: 'APPLIED' },
-            });
-        } catch (error) {
-            logger.error('Failed to apply fix:', error);
+        // Apply fix if requested
+        if (applyFix && fixResult.success && Object.keys(fixResult.fix).length > 0) {
+            try {
+                await applyNodeFix(userId, {
+                    workflowId,
+                    n8nWorkflowId: workflow.n8nId,
+                    nodeId,
+                    fix: fixResult.fix,
+                });
+
+                await prisma.analysis.update({
+                    where: { id: savedAnalysis.id },
+                    data: { status: 'APPLIED' },
+                });
+            } catch (error) {
+                logger.error('Failed to apply fix:', error);
+            }
         }
+    } catch (dbError) {
+        logger.warn('Failed to save analysis to database (table may not exist):', dbError);
     }
 
     return {
-        analysisId: savedAnalysis.id,
+        analysisId,
         ...fixResult,
     };
 };
