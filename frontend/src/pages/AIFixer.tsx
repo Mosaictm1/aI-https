@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { useWorkflows } from '@/hooks/useWorkflows';
+import { useWorkflows, useWorkflow } from '@/hooks/useWorkflows';
 import { useAIAnalysis } from '@/hooks/useAIAnalysis';
 import { cn } from '@/lib/utils';
 
@@ -63,9 +63,12 @@ export default function AIFixer() {
     const [mode, setMode] = useState<'fix' | 'build'>('fix');
     const [buildIdea, setBuildIdea] = useState('');
 
-    const selectedWorkflowData = workflows.find(w => w.id === selectedWorkflow);
+    // Fetch full workflow details when selected
+    const { data: selectedWorkflowData } = useWorkflow(selectedWorkflow);
+
+    // Filter HTTP Request nodes
     const httpNodes = selectedWorkflowData?.nodes?.filter(
-        (n: { type: string }) => n.type.includes('httpRequest')
+        (n: { type: string }) => n.type?.toLowerCase().includes('httprequest') || n.type?.toLowerCase().includes('http request')
     ) || [];
 
     const handleFixWorkflow = async () => {
