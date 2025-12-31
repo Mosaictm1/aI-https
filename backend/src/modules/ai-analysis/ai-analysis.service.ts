@@ -73,18 +73,30 @@ export const fixNode = async (
     const headers = (parameters.headers as Record<string, string>) || {};
     const body = parameters.body;
 
-    // Call Manus to fix the node
-    logger.info(`Fixing node ${nodeId} in workflow ${workflowId}`);
+    // Get decrypted API key for n8n access
+    const n8nApiKey = decrypt(workflow.instance.apiKey);
+
+    // Call Manus to fix the node with full n8n access
+    logger.info(`Fixing node ${nodeId} in workflow ${workflowId} - sending to Manus AI`);
 
     const fixResult = await manusClient.fixNode({
         errorMessage,
         nodeType: node.type,
+        nodeId: node.id,
+        nodeName: node.name,
         url,
         method,
         headers,
         body,
         parameters,
+        n8n: {
+            instanceUrl: workflow.instance.url,
+            apiKey: n8nApiKey,
+            workflowId: workflow.n8nId,
+        },
+        workflowJson: workflow.nodes, // إرسال كل الـ nodes
     });
+
 
     // Save analysis to database
     const savedAnalysis = await prisma.analysis.create({
@@ -140,14 +152,29 @@ export const buildWorkflow = async (
         throw new BadRequestError('AI service not configured. Please add MANUS_API_KEY.');
     }
 
-    // Build workflow using Manus
+    // Build workflow using Manus with n8n access if available
+    let n8nAccess;
+    if (instanceId) {
+        const instance = await prisma.instance.findFirst({
+            where: { id: instanceId, userId },
+        });
+        if (instance) {
+            n8nAccess = {
+                instanceUrl: instance.url,
+                apiKey: decrypt(instance.apiKey),
+            };
+        }
+    }
+
     logger.info(`Building workflow from idea: ${idea.substring(0, 50)}...`);
 
     const buildResult = await manusClient.buildWorkflow({
         idea,
         services,
         additionalContext,
+        n8n: n8nAccess,
     });
+
 
     let createdWorkflowId: string | undefined;
 

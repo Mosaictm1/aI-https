@@ -1,5 +1,5 @@
 // ============================================
-// Manus AI Client - Task-based API
+// Manus AI Client - Task-based API with n8n Control
 // ============================================
 
 import axios, { AxiosInstance } from 'axios';
@@ -24,15 +24,25 @@ export interface ManusTaskResponse {
     completedAt?: string;
 }
 
+export interface N8nAccess {
+    instanceUrl: string;
+    apiKey: string;
+    workflowId?: string;
+}
+
 export interface NodeFixRequest {
     errorMessage: string;
     nodeType: string;
+    nodeId: string;
+    nodeName: string;
     url: string;
     method: string;
     headers?: Record<string, string>;
     body?: unknown;
     parameters?: Record<string, unknown>;
     serviceName?: string;
+    n8n: N8nAccess;
+    workflowJson?: unknown;
 }
 
 export interface NodeFixResult {
@@ -47,12 +57,14 @@ export interface NodeFixResult {
     };
     explanation: string;
     documentationLinks?: string[];
+    appliedDirectly?: boolean;
 }
 
 export interface WorkflowBuildRequest {
     idea: string;
     services?: string[];
     additionalContext?: string;
+    n8n?: N8nAccess;
 }
 
 export interface WorkflowBuildResult {
@@ -65,6 +77,8 @@ export interface WorkflowBuildResult {
     };
     explanation: string;
     requiredCredentials: string[];
+    createdInN8n?: boolean;
+    n8nWorkflowId?: string;
 }
 
 // ==================== Client Class ====================
@@ -83,7 +97,7 @@ export class ManusClient {
 
         this.client = axios.create({
             baseURL: 'https://api.manus.ai/v1',
-            timeout: 120000, // 2 minutes for long tasks
+            timeout: 600000, // 10 minutes for long tasks
             headers: {
                 'API_KEY': this.apiKey,
                 'Content-Type': 'application/json',
@@ -146,11 +160,11 @@ export class ManusClient {
     }
 
     /**
-     * Wait for task completion with polling
+     * Wait for task completion with polling (10 minutes max)
      */
     async waitForTask(
         taskId: string,
-        maxWaitMs = 300000, // 5 minutes
+        maxWaitMs = 600000, // 10 minutes
         pollIntervalMs = 5000 // 5 seconds
     ): Promise<ManusTaskResponse> {
         const startTime = Date.now();
@@ -166,11 +180,11 @@ export class ManusClient {
                 throw new Error(task.error || 'Task failed');
             }
 
-            // Wait before next poll
+            logger.debug(`Task ${taskId} status: ${task.status}`);
             await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
         }
 
-        throw new Error('Task timed out');
+        throw new Error('Task timed out after 10 minutes');
     }
 
     /**
@@ -181,6 +195,8 @@ export class ManusClient {
         agentProfile?: AgentProfile
     ): Promise<string> {
         const task = await this.createTask({ prompt, agentProfile });
+        logger.info(`Created Manus task: ${task.id}`);
+
         const completedTask = await this.waitForTask(task.id);
 
         if (!completedTask.result) {
@@ -193,12 +209,13 @@ export class ManusClient {
     // ==================== Fix Node Feature ====================
 
     /**
-     * Fix a broken HTTP Request node
+     * Fix a broken HTTP Request node with full n8n access
      */
     async fixNode(request: NodeFixRequest): Promise<NodeFixResult> {
         const prompt = this.buildFixNodePrompt(request);
 
         try {
+            logger.info(`Sending fix request for node ${request.nodeId} to Manus AI`);
             const result = await this.executeTask(prompt, 'manus-1.6-max');
             return this.parseFixNodeResult(result);
         } catch (error) {
@@ -215,50 +232,79 @@ export class ManusClient {
     private buildFixNodePrompt(request: NodeFixRequest): string {
         const serviceName = request.serviceName || this.detectServiceFromUrl(request.url);
 
-        return `أنت خبير في n8n workflows و HTTP APIs.
+        return `أنت خبير في n8n workflows و HTTP APIs. لديك صلاحية كاملة للتحكم في n8n instance وإصلاح المشاكل.
 
-## المشكلة
+## 🔌 معلومات الوصول إلى n8n
+- **Instance URL:** ${request.n8n.instanceUrl}
+- **API Key:** ${request.n8n.apiKey}
+- **Workflow ID:** ${request.n8n.workflowId || 'غير محدد'}
+
+يمكنك استخدام هذه المعلومات لإجراء API calls مباشرة إلى n8n لـ:
+- قراءة تفاصيل الـ Workflow
+- تحديث الـ Nodes
+- اختبار التنفيذ
+
+## 🔴 المشكلة
 **رسالة الخطأ:** ${request.errorMessage}
 
-## تفاصيل الـ Node
+## 📝 تفاصيل الـ Node المعطل
+- **Node ID:** ${request.nodeId}
+- **Node Name:** ${request.nodeName}
 - **النوع:** ${request.nodeType}
 - **URL:** ${request.url}
 - **Method:** ${request.method}
 - **Headers:** ${JSON.stringify(request.headers || {}, null, 2)}
 - **Body:** ${JSON.stringify(request.body || {}, null, 2)}
-- **Parameters:** ${JSON.stringify(request.parameters || {}, null, 2)}
+- **كل الـ Parameters:** ${JSON.stringify(request.parameters || {}, null, 2)}
 
-## الخدمة المستخدمة
+${request.workflowJson ? `## 📋 Workflow JSON الكامل\n\`\`\`json\n${JSON.stringify(request.workflowJson, null, 2)}\n\`\`\`` : ''}
+
+## 🌐 الخدمة المستخدمة
 ${serviceName}
 
-## المطلوب منك:
-1. **تحليل الخطأ** - اشرح لماذا حدث هذا الخطأ بالضبط
-2. **البحث في التوثيق** - ابحث في documentation الخاصة بـ ${serviceName} للعثور على الحل الصحيح
-3. **تقديم الإصلاح** - قدم الإصلاح بصيغة JSON
+## 📌 المهمة المطلوبة:
 
-## صيغة الرد المطلوبة (JSON فقط):
+### 1. تحليل الخطأ
+- اقرأ رسالة الخطأ بعناية
+- حدد السبب الجذري للمشكلة
+
+### 2. البحث في التوثيق
+- ابحث في documentation الخاصة بـ ${serviceName}
+- جد الـ endpoint الصحيح والـ headers والـ body المطلوب
+
+### 3. إصلاح المشكلة
+- قدم الإصلاح الكامل
+- إذا أمكن، استخدم n8n API لتطبيق الإصلاح مباشرة
+
+### 4. التحقق
+- تأكد من أن الإصلاح سيعمل
+
+## 📤 صيغة الرد المطلوبة (JSON فقط):
 \`\`\`json
 {
   "success": true,
-  "analysis": "شرح سبب الخطأ",
+  "analysis": "الخطأ حدث بسبب... (شرح مفصل)",
   "fix": {
-    "url": "الـ URL الصحيح إن تغير",
-    "method": "الـ method الصحيح إن تغير",
-    "headers": { "Header-Name": "value" },
+    "url": "الـ URL الصحيح بعد الإصلاح",
+    "method": "GET/POST/PUT/DELETE",
+    "headers": {
+      "Authorization": "Bearer xxx",
+      "Content-Type": "application/json"
+    },
     "body": {},
     "parameters": {}
   },
-  "explanation": "شرح الإصلاح وكيفية تطبيقه",
-  "documentationLinks": ["روابط التوثيق المرجعية"]
+  "explanation": "شرح ما تم إصلاحه وكيف يعمل الآن",
+  "documentationLinks": ["روابط التوثيق المرجعية"],
+  "appliedDirectly": false
 }
 \`\`\`
 
-يجب أن يكون ردك JSON فقط بدون أي نص إضافي.`;
+⚠️ مهم: يجب أن يكون ردك JSON فقط بدون أي نص إضافي.`;
     }
 
     private parseFixNodeResult(result: string): NodeFixResult {
         try {
-            // Extract JSON from result
             const jsonMatch = result.match(/```json\s*([\s\S]*?)\s*```/) ||
                 result.match(/\{[\s\S]*\}/);
 
@@ -267,7 +313,6 @@ ${serviceName}
                 return JSON.parse(json);
             }
 
-            // Try parsing the whole result as JSON
             return JSON.parse(result);
         } catch {
             return {
@@ -282,12 +327,13 @@ ${serviceName}
     // ==================== Build Workflow Feature ====================
 
     /**
-     * Build a workflow from user idea
+     * Build a workflow from user idea with n8n access
      */
     async buildWorkflow(request: WorkflowBuildRequest): Promise<WorkflowBuildResult> {
         const prompt = this.buildWorkflowPrompt(request);
 
         try {
+            logger.info(`Building workflow from idea: ${request.idea.substring(0, 50)}...`);
             const result = await this.executeTask(prompt, 'manus-1.6-max');
             return this.parseWorkflowResult(result);
         } catch (error) {
@@ -302,61 +348,101 @@ ${serviceName}
     }
 
     private buildWorkflowPrompt(request: WorkflowBuildRequest): string {
+        const n8nSection = request.n8n ? `
+## 🔌 معلومات الوصول إلى n8n
+- **Instance URL:** ${request.n8n.instanceUrl}
+- **API Key:** ${request.n8n.apiKey}
+
+يمكنك إنشاء الـ Workflow مباشرة في n8n باستخدام:
+\`\`\`
+POST ${request.n8n.instanceUrl}/api/v1/workflows
+Headers: X-N8N-API-KEY: ${request.n8n.apiKey}
+\`\`\`
+` : '';
+
         return `أنت خبير في بناء n8n workflows و ربط التطبيقات عبر HTTP APIs.
 
-## فكرة المستخدم
+${n8nSection}
+
+## 💡 فكرة المستخدم
 ${request.idea}
 
-${request.services?.length ? `## الخدمات المطلوبة\n${request.services.join(', ')}` : ''}
+${request.services?.length ? `## 🔗 الخدمات المطلوبة\n${request.services.join(', ')}` : ''}
 
-${request.additionalContext ? `## سياق إضافي\n${request.additionalContext}` : ''}
+${request.additionalContext ? `## 📝 سياق إضافي\n${request.additionalContext}` : ''}
 
-## المطلوب منك:
-1. **تحليل الفكرة** - فهم ما يريده المستخدم بالضبط
-2. **تحديد APIs** - البحث عن endpoints المناسبة لكل خدمة
-3. **بناء الـ Workflow** - إنشاء workflow JSON كامل يعمل على n8n
+## 📌 المهمة المطلوبة:
 
-## صيغة n8n Workflow:
+### 1. تحليل الفكرة
+- فهم ما يريده المستخدم بالضبط
+- تحديد الخطوات المطلوبة
+
+### 2. البحث عن APIs
+- ابحث عن documentation كل خدمة
+- حدد الـ endpoints الصحيحة
+- حدد الـ authentication المطلوب
+
+### 3. بناء الـ Workflow
+- أنشئ workflow JSON كامل وصحيح
+- تأكد من أن كل node يحتوي على كل الـ parameters المطلوبة
+
+### 4. (اختياري) إنشاء في n8n
+- إذا متاح الوصول، أنشئ الـ workflow مباشرة
+
+## 📋 متطلبات n8n Workflow:
 - كل node يجب أن يحتوي على: id, name, type, typeVersion, position, parameters
-- الـ connections تربط بين الـ nodes
-- استخدم HTTP Request nodes للـ API calls
+- استخدم UUIDs صحيحة للـ node IDs
+- الـ connections تربط بين الـ nodes بالشكل الصحيح
+- استخدم HTTP Request nodes (n8n-nodes-base.httpRequest) للـ API calls
+- typeVersion للـ HTTP Request = 4.2
 
-## صيغة الرد المطلوبة (JSON فقط):
+## 📤 صيغة الرد المطلوبة (JSON فقط):
 \`\`\`json
 {
   "success": true,
   "workflow": {
-    "name": "اسم الـ Workflow",
+    "name": "اسم وصفي للـ Workflow",
     "nodes": [
       {
-        "id": "uuid",
-        "name": "Node Name",
+        "id": "unique-uuid-here",
+        "name": "اسم الـ Node",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [250, 300],
         "parameters": {
           "url": "https://api.example.com/endpoint",
           "method": "POST",
-          "headers": {},
-          "body": {}
+          "authentication": "none",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {"name": "Content-Type", "value": "application/json"}
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": []
+          }
         }
       }
     ],
     "connections": {
-      "Node1": {
-        "main": [[{"node": "Node2", "type": "main", "index": 0}]]
+      "Start": {
+        "main": [[{"node": "HTTP Request", "type": "main", "index": 0}]]
       }
     },
     "settings": {
       "executionOrder": "v1"
     }
   },
-  "explanation": "شرح كيف يعمل الـ Workflow",
-  "requiredCredentials": ["اسم كل credential مطلوب"]
+  "explanation": "شرح مفصل لكيفية عمل الـ Workflow خطوة بخطوة",
+  "requiredCredentials": ["API Keys أو credentials المطلوبة"],
+  "createdInN8n": false,
+  "n8nWorkflowId": null
 }
 \`\`\`
 
-يجب أن يكون ردك JSON فقط بدون أي نص إضافي.`;
+⚠️ مهم: يجب أن يكون ردك JSON فقط بدون أي نص إضافي.`;
     }
 
     private parseWorkflowResult(result: string): WorkflowBuildResult {
@@ -404,6 +490,7 @@ ${request.additionalContext ? `## سياق إضافي\n${request.additionalConte
             'googleapis.com': 'Google API',
             'api.zoom.us': 'Zoom API',
             'api.calendly.com': 'Calendly API',
+            'wavespeed': 'Wavespeed AI API',
         };
 
         for (const [domain, name] of Object.entries(services)) {
