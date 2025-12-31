@@ -99,9 +99,10 @@ export class ManusClient {
         }
 
         this.client = axios.create({
-            baseURL: 'https://api.manus.ai/v1',
+            baseURL: 'https://api.manus.im/v1',
             timeout: 600000, // 10 minutes for long tasks
             headers: {
+                'API_KEY': this.apiKey,
                 'X-API-Key': this.apiKey,
                 'Content-Type': 'application/json',
             },
