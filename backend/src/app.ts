@@ -18,6 +18,7 @@ import { authRouter } from './modules/auth/index.js';
 import { usersRouter } from './modules/users/index.js';
 import { instancesRouter } from './modules/instances/index.js';
 import { workflowsRouter } from './modules/workflows/index.js';
+import { aiAnalysisRouter } from './modules/ai-analysis/index.js';
 
 // ==================== Create App ====================
 
@@ -80,6 +81,9 @@ export const createApp = (): Application => {
     // Workflows routes
     app.use('/api/v1/workflows', workflowsRouter);
 
+    // AI Analysis routes
+    app.use('/api/v1/ai', aiAnalysisRouter);
+
     // API info endpoint
     app.get('/api/v1', (_req, res) => {
         res.status(200).json({
@@ -93,10 +97,12 @@ export const createApp = (): Application => {
                     users: '/api/v1/users',
                     instances: '/api/v1/instances',
                     workflows: '/api/v1/workflows',
+                    ai: '/api/v1/ai',
                 },
             },
         });
     });
+
 
     // ==================== Error Handling ====================
 

@@ -2,8 +2,10 @@
 // Main Entry Point
 // ============================================
 
+import http from 'http';
 import { createApp } from './app.js';
 import { env, logger, connectDatabase, connectRedis } from './config/index.js';
+import { initializeSocket } from './config/socket.js';
 
 // ==================== Bootstrap ====================
 
@@ -39,12 +41,20 @@ const bootstrap = async (): Promise<void> => {
         // Create Express app
         const app = createApp();
 
+        // Create HTTP server
+        const server = http.createServer(app);
+
+        // Initialize Socket.io
+        initializeSocket(server);
+
         // Start server
-        const server = app.listen(env.port, env.host, () => {
+        server.listen(env.port, env.host, () => {
             logger.info(`✅ Server running on http://${env.host}:${env.port}`);
             logger.info(`📚 API available at http://${env.host}:${env.port}/api/v1`);
             logger.info(`💚 Health check at http://${env.host}:${env.port}/health`);
+            logger.info(`🔌 WebSocket available on ws://${env.host}:${env.port}`);
         });
+
 
         // Graceful shutdown
         const shutdown = async (signal: string): Promise<void> => {

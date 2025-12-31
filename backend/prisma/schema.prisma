@@ -144,6 +144,7 @@ model Workflow {
   
   // Relations
   executions   Execution[]
+  analyses     Analysis[]
 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -153,6 +154,7 @@ model Workflow {
   @@index([active])
   @@map("workflows")
 }
+
 
 /// تنفيذات الـ Workflows
 model Execution {
@@ -255,6 +257,31 @@ model AiAnalysis {
   @@index([userId])
   @@index([executionId])
   @@map("ai_analyses")
+}
+
+/// تحليلات AI للـ Workflows
+model Analysis {
+  id           String     @id @default(cuid())
+  workflowId   String
+  workflow     Workflow   @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  
+  nodeId       String
+  nodeName     String
+  nodeType     String
+  
+  errorMessage String
+  errorStack   String?
+  
+  analysis     Json       // Analysis result from AI
+  suggestions  Json       // Suggested fixes
+  status       String     @default("PENDING") // PENDING, COMPLETED, APPLIED
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([workflowId])
+  @@index([status])
+  @@map("analyses")
 }
 
 /// قوالب الخدمات
