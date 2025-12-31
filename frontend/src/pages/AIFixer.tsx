@@ -28,7 +28,11 @@ import { cn } from '@/lib/utils';
 
 interface FixResult {
     success: boolean;
+    externalIssue?: boolean;
     summary?: string;
+    analysis?: string;
+    explanation?: string;
+    recommendations?: string[];
     issuesFixed?: Array<{
         errorName: string;
         description: string;
@@ -240,22 +244,44 @@ export default function AIFixer() {
                                     {/* Status */}
                                     <div className={cn(
                                         "flex items-center gap-3 p-4 rounded-lg",
-                                        result.success ? "bg-lime-green/10" : "bg-action-orange/10"
+                                        result.success ? "bg-lime-green/10" : result.externalIssue ? "bg-accent-yellow/10" : "bg-action-orange/10"
                                     )}>
                                         {result.success ? (
                                             <CheckCircle className="h-6 w-6 text-lime-green" />
+                                        ) : result.externalIssue ? (
+                                            <AlertCircle className="h-6 w-6 text-accent-yellow" />
                                         ) : (
                                             <XCircle className="h-6 w-6 text-action-orange" />
                                         )}
                                         <div>
                                             <p className="font-semibold text-white">
-                                                {result.success ? 'تم الإصلاح بنجاح!' : 'فشل الإصلاح'}
+                                                {result.success ? 'تم الإصلاح بنجاح!' : result.externalIssue ? 'مشكلة خارجية' : 'فشل الإصلاح'}
                                             </p>
                                             {result.summary && (
                                                 <p className="text-sm text-white/70">{result.summary}</p>
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Analysis / Explanation */}
+                                    {(result.analysis || result.explanation) && (
+                                        <div className="p-3 bg-white/5 rounded-lg">
+                                            <h4 className="text-sm font-semibold text-white mb-2">📊 التحليل:</h4>
+                                            <p className="text-sm text-white/70">{result.analysis || result.explanation}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Recommendations */}
+                                    {result.recommendations && result.recommendations.length > 0 && (
+                                        <div className="p-3 bg-accent-yellow/10 rounded-lg">
+                                            <h4 className="text-sm font-semibold text-accent-yellow mb-2">💡 التوصيات:</h4>
+                                            <ul className="list-disc list-inside space-y-1 text-sm text-white/70">
+                                                {result.recommendations.map((rec, i) => (
+                                                    <li key={i}>{rec}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
 
                                     {/* Issues Fixed */}
                                     {result.issuesFixed && result.issuesFixed.length > 0 && (
