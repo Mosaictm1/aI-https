@@ -338,30 +338,66 @@ ${serviceName}
 \`\`\`json
 {
   "success": true,
-  "analysis": "الخطأ الأصلي كان بسبب... (شرح مفصل)",
-  "fix": {
-    "url": "الـ URL النهائي بعد كل الإصلاحات",
-    "method": "GET/POST/PUT/DELETE",
-    "headers": {
-      "Authorization": "Bearer xxx",
-      "Content-Type": "application/json"
-    },
-    "body": {},
-    "parameters": {}
-  },
-  "explanation": "ملخص كل الإصلاحات التي تمت:\\n1. [أول إصلاح]\\n2. [ثاني إصلاح]\\n...",
-  "documentationLinks": ["روابط التوثيق المرجعية"],
-  "appliedDirectly": true,
+  "summary": "The workflow is now working successfully! Here's a summary of what was fixed:",
+  
+  "issuesFixed": [
+    {
+      "errorName": "اسم الخطأ (مثل: 401 Unauthorized Error)",
+      "description": "شرح المشكلة",
+      "solution": "ما تم فعله لحل المشكلة",
+      "nodeAffected": "اسم الـ Node الذي تأثر"
+    }
+  ],
+  
+  "nodesModified": [
+    {
+      "nodeName": "اسم الـ Node",
+      "changeType": "modified | added | removed",
+      "description": "ما تم تغييره"
+    }
+  ],
+  
+  "nodesAdded": [
+    {
+      "nodeName": "اسم الـ Node الجديد",
+      "purpose": "لماذا تمت إضافته",
+      "type": "n8n-nodes-base.httpRequest"
+    }
+  ],
+  
   "executionResult": {
     "tested": true,
     "successful": true,
-    "iterationsNeeded": 3,
-    "finalStatus": "Workflow running successfully"
-  }
+    "status": "Published ✅",
+    "resultUrl": "رابط النتيجة إن وجد (مثل رابط Instagram Post)",
+    "executedAt": "2025-12-31T07:40:45.069Z",
+    "iterationsNeeded": 3
+  },
+  
+  "workflowNowDoes": [
+    "الخطوة 1: يفعل كذا",
+    "الخطوة 2: يفعل كذا",
+    "الخطوة 3: يفعل كذا"
+  ],
+  
+  "fix": {
+    "url": "الـ URL النهائي",
+    "method": "POST",
+    "headers": {},
+    "body": {},
+    "parameters": {}
+  },
+  
+  "documentationLinks": ["روابط مرجعية"],
+  "appliedDirectly": true,
+  "finalMessage": "Your workflow is now fully functional! ✅"
 }
 \`\`\`
 
-⚠️ مهم: يجب أن يكون ردك JSON فقط بدون أي نص إضافي.`;
+⚠️ مهم جداً:
+- يجب أن يكون ردك JSON فقط بدون أي نص إضافي
+- اكتب summary و finalMessage بالإنجليزية
+- اكتب التفاصيل بالعربية أو الإنجليزية حسب المناسب`;
     }
 
     private parseFixNodeResult(result: string): NodeFixResult {
