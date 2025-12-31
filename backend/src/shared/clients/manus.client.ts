@@ -196,19 +196,27 @@ export class ManusClient {
     }
 
     /**
-     * Wait for task completion with polling (10 minutes max)
+     * Wait for task completion with smart adaptive polling
+     * - Polls faster at start (3s), slows down over time (up to 15s)
+     * - No arbitrary timeout - waits until task completes
+     * - Max 30 minutes as safety limit
      */
     async waitForTask(
         taskId: string,
-        maxWaitMs = 600000, // 10 minutes
-        pollIntervalMs = 5000 // 5 seconds
+        maxWaitMs = 1800000, // 30 minutes safety limit
+        initialPollMs = 3000 // Start with 3 seconds
     ): Promise<ManusTaskResponse> {
         const startTime = Date.now();
+        let pollCount = 0;
+        let currentPollMs = initialPollMs;
 
         while (Date.now() - startTime < maxWaitMs) {
             const task = await this.getTask(taskId);
+            pollCount++;
 
             if (task.status === 'completed') {
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+                logger.info(`✅ Task ${taskId} completed in ${duration}s after ${pollCount} polls`);
                 return task;
             }
 
@@ -216,11 +224,19 @@ export class ManusClient {
                 throw new Error(task.error || 'Task failed');
             }
 
-            logger.debug(`Task ${taskId} status: ${task.status}`);
-            await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+            // Adaptive polling: start fast, slow down over time
+            // First 30s: 3s intervals, then gradually increase to 15s max
+            if (pollCount > 10) {
+                currentPollMs = Math.min(15000, currentPollMs + 1000); // Max 15s
+            }
+
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+            logger.debug(`Task ${taskId} status: ${task.status} (${elapsed}s elapsed, poll #${pollCount})`);
+
+            await new Promise(resolve => setTimeout(resolve, currentPollMs));
         }
 
-        throw new Error('Task timed out after 10 minutes');
+        throw new Error('Task exceeded safety limit of 30 minutes');
     }
 
     /**
