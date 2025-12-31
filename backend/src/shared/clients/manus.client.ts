@@ -101,7 +101,6 @@ export class ManusClient {
             timeout: 600000, // 10 minutes for long tasks
             headers: {
                 'X-API-Key': this.apiKey,
-                'Authorization': `Bearer ${this.apiKey}`,
                 'Content-Type': 'application/json',
             },
         });
