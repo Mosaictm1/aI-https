@@ -22,7 +22,7 @@ export type AnalyzeErrorInput = z.infer<typeof analyzeErrorSchema.body>;
 
 export const fixNodeSchema = {
     body: z.object({
-        workflowId: z.string().uuid('Invalid workflow ID'),
+        workflowId: z.string().cuid('Invalid workflow ID'),
         nodeId: z.string().min(1, 'Node ID is required'),
         errorMessage: z.string().min(1, 'Error message is required'),
         applyFix: z.boolean().optional().default(false),
@@ -38,7 +38,7 @@ export const buildWorkflowSchema = {
         idea: z.string().min(10, 'Please provide more details about your idea'),
         services: z.array(z.string()).optional(),
         additionalContext: z.string().optional(),
-        instanceId: z.string().uuid('Invalid instance ID').optional(),
+        instanceId: z.string().cuid('Invalid instance ID').optional(),
         autoCreate: z.boolean().optional().default(false),
     }),
 };
@@ -49,7 +49,7 @@ export type BuildWorkflowInput = z.infer<typeof buildWorkflowSchema.body>;
 
 export const applyFixSchema = {
     body: z.object({
-        workflowId: z.string().uuid('Invalid workflow ID'),
+        workflowId: z.string().cuid('Invalid workflow ID'),
         n8nWorkflowId: z.string().min(1, 'n8n workflow ID is required'),
         nodeId: z.string().min(1, 'Node ID is required'),
         fix: z.object({
