@@ -437,17 +437,26 @@ ${serviceName}
     }
 
     private parseFixNodeResult(result: string): NodeFixResult {
+        logger.info('Raw AI result length: ' + result.length);
+        logger.info('Raw AI result (first 1000 chars): ' + result.substring(0, 1000));
+
         try {
             const jsonMatch = result.match(/```json\s*([\s\S]*?)\s*```/) ||
                 result.match(/\{[\s\S]*\}/);
 
             if (jsonMatch) {
                 const json = jsonMatch[1] || jsonMatch[0];
-                return JSON.parse(json);
+                logger.info('Parsed JSON: ' + json.substring(0, 500));
+                const parsed = JSON.parse(json);
+                logger.info('Parsed result success: ' + parsed.success);
+                return parsed;
             }
 
-            return JSON.parse(result);
-        } catch {
+            const parsed = JSON.parse(result);
+            logger.info('Direct parsed result success: ' + parsed.success);
+            return parsed;
+        } catch (error) {
+            logger.error('Failed to parse AI result:', error);
             return {
                 success: false,
                 analysis: 'فشل في تحليل رد الـ AI',
