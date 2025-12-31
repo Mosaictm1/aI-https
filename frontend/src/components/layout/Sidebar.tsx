@@ -4,13 +4,13 @@ import {
     Server,
     Workflow,
     Code2,
-    Sparkles,
     FileCode,
     Key,
     Settings,
     ChevronRight,
     ChevronLeft,
     Zap,
+    Bot,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui.store';
@@ -20,7 +20,7 @@ const navigation = [
     { name: 'الـ Instances', href: '/instances', icon: Server },
     { name: 'سير العمل', href: '/workflows', icon: Workflow },
     { name: 'HTTP Builder', href: '/http-builder', icon: Code2 },
-    { name: 'تحليل الأخطاء', href: '/ai-analysis', icon: Sparkles },
+    { name: 'AI Fixer', href: '/ai-fixer', icon: Bot },
     { name: 'القوالب', href: '/templates', icon: FileCode },
 ];
 
