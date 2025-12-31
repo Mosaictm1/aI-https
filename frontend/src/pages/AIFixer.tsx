@@ -81,7 +81,7 @@ interface RequestLog {
 
 export default function AIFixer() {
     const { data: workflowsData } = useWorkflows();
-    const { analyze, isAnalyzing, build, isBuilding, smartBuild, isSmartBuilding, smartBuildResult } = useAIAnalysis();
+    const { analyze, isAnalyzing, isBuilding, smartBuild } = useAIAnalysis();
     const { data: instancesData } = useInstances();
 
     const instances = instancesData?.items || [];
