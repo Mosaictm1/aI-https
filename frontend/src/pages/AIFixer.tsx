@@ -82,6 +82,10 @@ export default function AIFixer() {
     const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
     const abortControllerRef = React.useRef<AbortController | null>(null);
 
+    // Persistent analysis history from database
+    const { useAnalysisHistory } = useAIAnalysis();
+    const { data: analysisHistory, isLoading: isLoadingHistory } = useAnalysisHistory();
+
     // Fetch full workflow details when selected
     const { data: selectedWorkflowData } = useWorkflow(selectedWorkflow);
 
@@ -469,7 +473,97 @@ export default function AIFixer() {
                 </Card>
             )}
 
-            {/* Request Logs Section */}
+            {/* Persistent Analysis History Section */}
+            <Card className="glass-card">
+                <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                            <FileCode className="h-5 w-5 text-lime-green" />
+                            📜 سجل التحليلات السابقة
+                        </CardTitle>
+                        {isLoadingHistory && (
+                            <Loader2 className="h-4 w-4 animate-spin text-white/50" />
+                        )}
+                    </div>
+                    <CardDescription>كل التحليلات المحفوظة - اضغط لعرض التفاصيل</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {analysisHistory && analysisHistory.length > 0 ? (
+                        <div className="space-y-2 max-h-80 overflow-y-auto">
+                            {analysisHistory.map((analysis) => (
+                                <div
+                                    key={analysis.id}
+                                    className={cn(
+                                        "flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-white/10 transition-colors",
+                                        analysis.status === 'COMPLETED' ? "bg-lime-green/5" :
+                                            analysis.status === 'APPLIED' ? "bg-accent-yellow/5" :
+                                                "bg-action-orange/5"
+                                    )}
+                                    onClick={() => {
+                                        // Load this analysis as current result
+                                        try {
+                                            const parsed = typeof analysis.analysis === 'string'
+                                                ? JSON.parse(analysis.analysis)
+                                                : analysis.analysis;
+                                            setResult(parsed as FixResult);
+                                        } catch {
+                                            setResult({
+                                                success: analysis.status === 'COMPLETED' || analysis.status === 'APPLIED',
+                                                summary: `تحليل لـ ${analysis.nodeName}`,
+                                                explanation: analysis.errorMessage,
+                                            });
+                                        }
+                                    }}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        {analysis.status === 'COMPLETED' && (
+                                            <CheckCircle className="h-4 w-4 text-lime-green" />
+                                        )}
+                                        {analysis.status === 'APPLIED' && (
+                                            <Sparkles className="h-4 w-4 text-accent-yellow" />
+                                        )}
+                                        {analysis.status === 'FAILED' && (
+                                            <XCircle className="h-4 w-4 text-action-orange" />
+                                        )}
+                                        <div>
+                                            <p className="text-sm text-white">
+                                                {analysis.workflow?.name || 'Unknown'} → {analysis.nodeName}
+                                            </p>
+                                            <p className="text-xs text-white/50">
+                                                {new Date(analysis.createdAt).toLocaleDateString('ar-EG', {
+                                                    year: 'numeric',
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </p>
+                                            <p className="text-xs text-white/30 truncate max-w-xs">{analysis.errorMessage}</p>
+                                        </div>
+                                    </div>
+                                    <Badge
+                                        variant={
+                                            analysis.status === 'COMPLETED' ? 'success' :
+                                                analysis.status === 'APPLIED' ? 'warning' :
+                                                    'error'
+                                        }
+                                    >
+                                        {analysis.status === 'COMPLETED' ? 'مكتمل' :
+                                            analysis.status === 'APPLIED' ? 'تم التطبيق' :
+                                                'فشل'}
+                                    </Badge>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-center text-white/50 py-4">
+                            {isLoadingHistory ? 'جاري التحميل...' : 'لا يوجد تحليلات سابقة'}
+                        </p>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Request Logs Section (Current Session) */}
             {requestLogs.length > 0 && (
                 <Card className="glass-card">
                     <CardHeader className="pb-3">

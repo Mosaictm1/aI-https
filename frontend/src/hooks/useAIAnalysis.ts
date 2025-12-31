@@ -57,6 +57,8 @@ interface AnalysisHistoryItem {
     nodeType: string;
     errorMessage: string;
     status: string;
+    analysis?: unknown;
+    suggestions?: unknown;
     createdAt: string;
     workflow: {
         id: string;
