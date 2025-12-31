@@ -169,20 +169,54 @@ export class ManusClient {
     }
 
     /**
-     * Get task status
+     * Get task status and extract result from output array
      */
     async getTask(taskId: string): Promise<ManusTaskResponse> {
         try {
             const response = await this.client.get(`/tasks/${taskId}`);
             const rawData = response.data.data || response.data;
 
+            logger.debug('Raw task response: ' + JSON.stringify(rawData).substring(0, 500));
+
+            // Extract result from output array
+            // API returns: output[].content[].text for the actual result
+            let extractedResult = rawData.result;
+
+            if (!extractedResult && rawData.output && Array.isArray(rawData.output)) {
+                // Find the last message with role "assistant" and type "message"
+                const agentMessages = rawData.output.filter(
+                    (msg: { role?: string; type?: string }) =>
+                        msg.role === 'assistant' || msg.type === 'message'
+                );
+
+                if (agentMessages.length > 0) {
+                    const lastMessage = agentMessages[agentMessages.length - 1];
+
+                    if (lastMessage.content && Array.isArray(lastMessage.content)) {
+                        // Get text from content array
+                        const textContents = lastMessage.content.filter(
+                            (c: { type?: string }) => c.type === 'output_text' || c.type === 'text'
+                        );
+
+                        if (textContents.length > 0) {
+                            extractedResult = textContents.map((c: { text?: string }) => c.text || '').join('\n');
+                        }
+                    } else if (typeof lastMessage.content === 'string') {
+                        extractedResult = lastMessage.content;
+                    }
+                }
+            }
+
+            // Also try metadata for task_url
+            const taskUrl = rawData.task_url || rawData.metadata?.task_url;
+
             // Normalize task_id to id
             return {
                 id: rawData.task_id || rawData.id || taskId,
                 status: rawData.status || 'pending',
-                result: rawData.result,
+                result: extractedResult,
                 error: rawData.error,
-                task_url: rawData.task_url,
+                task_url: taskUrl,
             };
         } catch (error) {
             if (axios.isAxiosError(error)) {
