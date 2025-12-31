@@ -90,7 +90,8 @@ export default function AIFixer() {
     const [mode, setMode] = useState<'fix' | 'build'>('fix');
     const [buildIdea, setBuildIdea] = useState('');
     const [buildResult, setBuildResult] = useState<BuildResult | null>(null);
-    const [selectedInstance, setSelectedInstance] = useState<string>('');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [selectedInstance, _setSelectedInstance] = useState<string>('');
 
     // Request history and active request tracking
     const [requestLogs, setRequestLogs] = useState<RequestLog[]>([]);
