@@ -318,38 +318,46 @@ export const getAnalysisHistory = async (
     workflowId?: string,
     limit = 20
 ) => {
-    const where: Record<string, unknown> = {
-        workflow: {
-            instance: { userId },
-        },
-    };
-
-    if (workflowId) {
-        where.workflowId = workflowId;
-    }
-
-    const analyses = await prisma.analysis.findMany({
-        where,
-        select: {
-            id: true,
-            nodeId: true,
-            nodeName: true,
-            nodeType: true,
-            errorMessage: true,
-            status: true,
-            createdAt: true,
+    try {
+        const where: Record<string, unknown> = {
             workflow: {
-                select: {
-                    id: true,
-                    name: true,
+                instance: { userId },
+            },
+        };
+
+        if (workflowId) {
+            where.workflowId = workflowId;
+        }
+
+        const analyses = await prisma.analysis.findMany({
+            where,
+            select: {
+                id: true,
+                nodeId: true,
+                nodeName: true,
+                nodeType: true,
+                errorMessage: true,
+                analysis: true,
+                suggestions: true,
+                status: true,
+                createdAt: true,
+                workflow: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
                 },
             },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-    });
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+        });
 
-    return analyses;
+        return analyses;
+    } catch (error) {
+        // Return empty array if table doesn't exist
+        logger.warn('Failed to get analysis history (table may not exist):', error);
+        return [];
+    }
 };
 
 // ==================== Get Analysis By ID ====================
