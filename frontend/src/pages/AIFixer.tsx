@@ -2,7 +2,7 @@
 // AI Fixer Page - Fix Workflows with AI
 // ============================================
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
     Bot,
     Wand2,
@@ -54,6 +54,16 @@ interface FixResult {
 
 // ==================== Component ====================
 
+interface RequestLog {
+    id: string;
+    workflowName: string;
+    nodeName: string;
+    status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+    startedAt: Date;
+    completedAt?: Date;
+    result?: FixResult;
+}
+
 export default function AIFixer() {
     const { data: workflowsData } = useWorkflows();
     const { analyze, isAnalyzing } = useAIAnalysis();
@@ -67,6 +77,11 @@ export default function AIFixer() {
     const [mode, setMode] = useState<'fix' | 'build'>('fix');
     const [buildIdea, setBuildIdea] = useState('');
 
+    // Request history and active request tracking
+    const [requestLogs, setRequestLogs] = useState<RequestLog[]>([]);
+    const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
+    const abortControllerRef = React.useRef<AbortController | null>(null);
+
     // Fetch full workflow details when selected
     const { data: selectedWorkflowData } = useWorkflow(selectedWorkflow);
 
@@ -78,16 +93,71 @@ export default function AIFixer() {
     const handleFixWorkflow = async () => {
         if (!selectedWorkflow || !selectedNode || !errorMessage) return;
 
+        // Create new request log
+        const requestId = `req-${Date.now()}`;
+        const workflowName = workflows.find(w => w.id === selectedWorkflow)?.name || 'Unknown';
+        const nodeName = httpNodes.find((n: { id: string }) => n.id === selectedNode)?.name || 'Unknown';
+
+        const newLog: RequestLog = {
+            id: requestId,
+            workflowName,
+            nodeName,
+            status: 'running',
+            startedAt: new Date(),
+        };
+
+        setRequestLogs(prev => [newLog, ...prev]);
+        setActiveRequestId(requestId);
+        abortControllerRef.current = new AbortController();
+
         try {
             const response = await analyze({
                 workflowId: selectedWorkflow,
                 nodeId: selectedNode,
                 errorMessage,
             });
-            setResult(response as unknown as FixResult);
+
+            const fixResult = response as unknown as FixResult;
+            setResult(fixResult);
+
+            // Update log with result
+            setRequestLogs(prev => prev.map(log =>
+                log.id === requestId
+                    ? { ...log, status: fixResult.success ? 'completed' : 'failed', completedAt: new Date(), result: fixResult }
+                    : log
+            ));
         } catch (error) {
             console.error('Fix failed:', error);
+
+            // Update log with error
+            setRequestLogs(prev => prev.map(log =>
+                log.id === requestId
+                    ? { ...log, status: 'failed', completedAt: new Date() }
+                    : log
+            ));
+        } finally {
+            setActiveRequestId(null);
+            abortControllerRef.current = null;
         }
+    };
+
+    const handleCancelRequest = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+
+        if (activeRequestId) {
+            setRequestLogs(prev => prev.map(log =>
+                log.id === activeRequestId
+                    ? { ...log, status: 'cancelled', completedAt: new Date() }
+                    : log
+            ));
+            setActiveRequestId(null);
+        }
+    };
+
+    const handleClearLogs = () => {
+        setRequestLogs([]);
     };
 
     const handleBuildWorkflow = async () => {
@@ -399,6 +469,94 @@ export default function AIFixer() {
                 </Card>
             )}
 
+            {/* Request Logs Section */}
+            {requestLogs.length > 0 && (
+                <Card className="glass-card">
+                    <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="flex items-center gap-2">
+                                <FileCode className="h-5 w-5 text-accent-yellow" />
+                                سجل الطلبات
+                            </CardTitle>
+                            <div className="flex gap-2">
+                                {activeRequestId && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleCancelRequest}
+                                        className="text-action-orange border-action-orange hover:bg-action-orange/10"
+                                    >
+                                        <XCircle className="h-4 w-4 mr-1" />
+                                        إلغاء
+                                    </Button>
+                                )}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleClearLogs}
+                                    className="text-white/50 hover:text-white"
+                                >
+                                    مسح السجل
+                                </Button>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {requestLogs.map((log) => (
+                                <div
+                                    key={log.id}
+                                    className={cn(
+                                        "flex items-center justify-between p-3 rounded-lg",
+                                        log.status === 'running' ? "bg-accent-yellow/10" :
+                                            log.status === 'completed' ? "bg-lime-green/10" :
+                                                log.status === 'cancelled' ? "bg-white/5" :
+                                                    "bg-action-orange/10"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        {log.status === 'running' && (
+                                            <Loader2 className="h-4 w-4 text-accent-yellow animate-spin" />
+                                        )}
+                                        {log.status === 'completed' && (
+                                            <CheckCircle className="h-4 w-4 text-lime-green" />
+                                        )}
+                                        {log.status === 'failed' && (
+                                            <XCircle className="h-4 w-4 text-action-orange" />
+                                        )}
+                                        {log.status === 'cancelled' && (
+                                            <AlertCircle className="h-4 w-4 text-white/50" />
+                                        )}
+                                        <div>
+                                            <p className="text-sm text-white">
+                                                {log.workflowName} → {log.nodeName}
+                                            </p>
+                                            <p className="text-xs text-white/50">
+                                                {log.startedAt.toLocaleTimeString('ar-EG')}
+                                                {log.completedAt && ` - ${log.completedAt.toLocaleTimeString('ar-EG')}`}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <Badge
+                                        variant={
+                                            log.status === 'running' ? 'warning' :
+                                                log.status === 'completed' ? 'success' :
+                                                    log.status === 'cancelled' ? 'secondary' :
+                                                        'error'
+                                        }
+                                    >
+                                        {log.status === 'running' ? 'جاري...' :
+                                            log.status === 'completed' ? 'مكتمل' :
+                                                log.status === 'cancelled' ? 'ملغي' :
+                                                    'فشل'}
+                                    </Badge>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Info Cards */}
             <div className="grid gap-4 sm:grid-cols-3">
                 <Card className="glass-card">
@@ -418,8 +576,8 @@ export default function AIFixer() {
                             <RefreshCw className="h-5 w-5 text-accent-yellow" />
                         </div>
                         <div>
-                            <p className="font-semibold text-white">تكرار حتى النجاح</p>
-                            <p className="text-xs text-white/50">لا يتوقف حتى يعمل 100%</p>
+                            <p className="font-semibold text-white">حد أقصى 3 محاولات</p>
+                            <p className="text-xs text-white/50">لحماية مواردك</p>
                         </div>
                     </CardContent>
                 </Card>
