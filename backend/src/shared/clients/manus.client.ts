@@ -489,37 +489,79 @@ Return as JSON:
 - Endpoints: ${r.endpoints.map(e => `${e.method} ${e.path}`).join(', ')}
 `).join('\n');
 
-        const prompt = `أنت خبير n8n. ابنِ workflow كامل بناءً على:
+        const prompt = `أنت خبير n8n workflows. مهمتك بناء workflow JSON كامل وصحيح.
 
 ## فكرة المستخدم:
 ${idea}
 
-## معلومات الـ APIs (من البحث):
+## معلومات الـ APIs:
 ${researchContext}
 
-## متطلبات:
-1. استخدم HTTP Request nodes مع الـ endpoints الصحيحة
-2. اربط الـ nodes بشكل منطقي
-3. أضف Manual Trigger كبداية
-4. استخدم الـ authentication الصحيح لكل service
+## مطلوب منك:
+ابنِ n8n workflow JSON كامل مع nodes و connections صحيحة.
 
-أرجع JSON فقط:
+## مثال على بنية الـ node:
+{
+  "id": "node-1",
+  "name": "Manual Trigger",
+  "type": "n8n-nodes-base.manualTrigger",
+  "typeVersion": 1,
+  "position": [250, 300],
+  "parameters": {}
+}
+
+## مثال HTTP Request node:
+{
+  "id": "node-2", 
+  "name": "HTTP Request",
+  "type": "n8n-nodes-base.httpRequest",
+  "typeVersion": 4.2,
+  "position": [450, 300],
+  "parameters": {
+    "method": "POST",
+    "url": "https://api.example.com/endpoint",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "sendHeaders": true,
+    "headerParameters": {
+      "parameters": [{"name": "Authorization", "value": "Bearer {{$json.api_key}}"}]
+    },
+    "sendBody": true,
+    "bodyParameters": {
+      "parameters": [{"name": "prompt", "value": "{{$json.input}}"}]
+    }
+  }
+}
+
+## أرجع JSON بهذا الشكل بالضبط:
 {
   "success": true,
   "workflow": {
     "name": "اسم الـ workflow",
-    "nodes": [...],
-    "connections": {...}
+    "nodes": [
+      { "id": "1", "name": "Manual Trigger", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [250, 300], "parameters": {} },
+      { "id": "2", "name": "...", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [450, 300], "parameters": { "method": "..." } }
+    ],
+    "connections": {
+      "Manual Trigger": { "main": [[{ "node": "...", "type": "main", "index": 0 }]] }
+    }
   },
-  "explanation": "شرح كيف يعمل",
-  "requiredCredentials": ["API Key for Service1", "API Key for Service2"]
-}`;
+  "explanation": "شرح مختصر",
+  "requiredCredentials": ["API Key for Service1"]
+}
+
+أرجع JSON فقط، بدون أي نص إضافي.`;
 
         try {
             const result = await this.executeTask(prompt, 'manus-1.6-max');
+            logger.info('Raw build workflow result:', result.substring(0, 500));
+
+            // Try to extract JSON
             const jsonMatch = result.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
-                return JSON.parse(jsonMatch[0]);
+                const parsed = JSON.parse(jsonMatch[0]);
+                logger.info(`Parsed workflow has ${parsed.workflow?.nodes?.length || 0} nodes`);
+                return parsed;
             }
         } catch (error) {
             logger.error('Failed to build workflow:', error);
