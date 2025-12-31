@@ -15,12 +15,14 @@ import {
     FileCode,
     Plus,
     RefreshCw,
+    Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useWorkflows, useWorkflow } from '@/hooks/useWorkflows';
+import { useInstances } from '@/hooks/useInstances';
 import { useAIAnalysis } from '@/hooks/useAIAnalysis';
 import { cn } from '@/lib/utils';
 
@@ -80,6 +82,9 @@ interface RequestLog {
 export default function AIFixer() {
     const { data: workflowsData } = useWorkflows();
     const { analyze, isAnalyzing, build, isBuilding } = useAIAnalysis();
+    const { data: instancesData } = useInstances();
+
+    const instances = instancesData?.items || [];
 
     const workflows = workflowsData?.items || [];
 
@@ -90,8 +95,7 @@ export default function AIFixer() {
     const [mode, setMode] = useState<'fix' | 'build'>('fix');
     const [buildIdea, setBuildIdea] = useState('');
     const [buildResult, setBuildResult] = useState<BuildResult | null>(null);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [selectedInstance, _setSelectedInstance] = useState<string>('');
+    const [selectedInstance, setSelectedInstance] = useState<string>('');
 
     // Request history and active request tracking
     const [requestLogs, setRequestLogs] = useState<RequestLog[]>([]);
@@ -508,6 +512,28 @@ export default function AIFixer() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                        {/* Instance Selection */}
+                        <div className="space-y-2">
+                            <label className="text-sm text-white/70 flex items-center gap-2">
+                                🔗 اختر Instance لإنشاء الـ Workflow فيه (اختياري)
+                            </label>
+                            <select
+                                className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white"
+                                value={selectedInstance}
+                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedInstance(e.target.value)}
+                            >
+                                <option value="" className="bg-deep-teal text-white">بدون إنشاء تلقائي (JSON فقط)</option>
+                                {instances.map((instance) => (
+                                    <option key={instance.id} value={instance.id} className="bg-deep-teal text-white">
+                                        {instance.name} - {instance.url}
+                                    </option>
+                                ))}
+                            </select>
+                            {selectedInstance && (
+                                <p className="text-xs text-lime-green">✅ سيتم إنشاء الـ Workflow تلقائياً في n8n</p>
+                            )}
+                        </div>
+
                         <Textarea
                             placeholder="مثال: أريد workflow يأخذ صورة من Wavespeed AI ثم ينشرها على Instagram عبر Late API..."
                             className="min-h-[200px] bg-white/10 border-white/20 text-white placeholder:text-white/30"
@@ -547,13 +573,31 @@ export default function AIFixer() {
                                 <p className="text-sm text-white/70">{buildResult.explanation}</p>
 
                                 {buildResult.workflow && (
-                                    <div className="p-3 bg-white/5 rounded-lg">
+                                    <div className="p-3 bg-white/5 rounded-lg space-y-2">
                                         <h4 className="text-sm font-semibold text-white mb-2">
                                             📋 {buildResult.workflow.name}
                                         </h4>
                                         <p className="text-xs text-white/50">
                                             {buildResult.workflow.nodes?.length || 0} nodes
                                         </p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                const workflowJson = JSON.stringify(buildResult.workflow, null, 2);
+                                                const blob = new Blob([workflowJson], { type: 'application/json' });
+                                                const url = URL.createObjectURL(blob);
+                                                const a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = `${buildResult.workflow?.name || 'workflow'}.json`;
+                                                a.click();
+                                                URL.revokeObjectURL(url);
+                                            }}
+                                            className="gap-2 text-accent-yellow border-accent-yellow hover:bg-accent-yellow/10"
+                                        >
+                                            <Download className="h-4 w-4" />
+                                            تحميل JSON
+                                        </Button>
                                     </div>
                                 )}
 
