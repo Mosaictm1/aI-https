@@ -99,6 +99,23 @@ export const smartBuildWorkflow = async (
     }
 };
 
+// ==================== Get Build History ====================
+
+export const getBuildHistory = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        const userId = (req as AuthenticatedRequest).user.id;
+        const builds = await aiAnalysisService.getBuildHistory(userId);
+
+        sendSuccess(res, builds, 'تم جلب سجل البناء بنجاح');
+    } catch (error) {
+        next(error);
+    }
+};
+
 // ==================== Get Analysis History ====================
 
 export const getAnalysisHistory = async (

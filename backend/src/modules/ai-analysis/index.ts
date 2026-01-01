@@ -64,6 +64,12 @@ router.post(
 // ==================== History Routes ====================
 
 /**
+ * @route GET /api/v1/ai/build-history
+ * @desc Get workflow build history
+ */
+router.get('/build-history', controller.getBuildHistory);
+
+/**
  * @route GET /api/v1/ai/history
  * @desc Get AI analysis history
  */

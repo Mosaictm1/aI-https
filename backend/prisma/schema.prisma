@@ -259,6 +259,36 @@ model AiAnalysis {
   @@map("ai_analyses")
 }
 
+/// سجل بناء الـ Workflows بالـ AI
+model WorkflowBuild {
+  id              String    @id @default(cuid())
+  userId          String
+  
+  idea            String     // User's original idea
+  extractedServices String[] // Services extracted from idea
+  
+  workflowName    String?    // Name of built workflow
+  workflowJson    Json?      // Full workflow JSON
+  nodesCount      Int        @default(0)
+  
+  explanation     String?    // AI explanation
+  requiredCredentials Json?  // Required credentials
+  
+  success         Boolean    @default(false)
+  errorMessage    String?
+  
+  // If created in n8n
+  n8nWorkflowId   String?
+  n8nWorkflowUrl  String?
+  instanceId      String?
+  
+  createdAt       DateTime   @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("workflow_builds")
+}
+
 /// تحليلات AI للـ Workflows
 model Analysis {
   id           String     @id @default(cuid())

@@ -192,6 +192,26 @@ const smartBuildWorkflow = async (input: { idea: string; instanceId?: string }):
     return response.data.data;
 };
 
+// Build History types
+export interface BuildHistoryItem {
+    id: string;
+    idea: string;
+    extractedServices: string[];
+    workflowName: string | null;
+    workflowJson: unknown | null;
+    nodesCount: number;
+    explanation: string | null;
+    requiredCredentials: unknown | null;
+    success: boolean;
+    n8nWorkflowUrl: string | null;
+    createdAt: string;
+}
+
+const getBuildHistory = async (): Promise<BuildHistoryItem[]> => {
+    const response = await api.get('/ai/build-history');
+    return response.data.data;
+};
+
 // ==================== Hook ====================
 
 export const useAIAnalysis = () => {
@@ -265,6 +285,15 @@ export const useAIAnalysis = () => {
         });
     };
 
+    // ==================== Build History Query ====================
+
+    const useBuildHistory = () => {
+        return useQuery({
+            queryKey: ['build-history'],
+            queryFn: getBuildHistory,
+        });
+    };
+
     // ==================== Actions ====================
 
     const analyze = useCallback(async (input: AnalyzeErrorInput) => {
@@ -331,6 +360,7 @@ export const useAIAnalysis = () => {
         // Queries
         useAnalysisHistory,
         useAnalysis,
+        useBuildHistory,
 
         // Actions
         clearAnalysis,

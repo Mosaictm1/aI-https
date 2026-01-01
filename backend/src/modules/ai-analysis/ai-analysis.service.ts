@@ -252,7 +252,61 @@ export const smartBuildWorkflow = async (
         n8n: n8nAccess,
     });
 
+    // Save to database for history
+    try {
+        await prisma.workflowBuild.create({
+            data: {
+                userId,
+                idea,
+                extractedServices: result.extractedServices || [],
+                workflowName: result.workflow?.name || null,
+                workflowJson: result.workflow ? toJson(result.workflow) : null,
+                nodesCount: result.workflow?.nodes?.length || 0,
+                explanation: result.explanation || null,
+                requiredCredentials: result.requiredCredentials ? toJson(result.requiredCredentials) : null,
+                success: result.success,
+                errorMessage: result.success ? null : result.currentStep?.message,
+                n8nWorkflowId: result.n8nWorkflowId || null,
+                n8nWorkflowUrl: result.n8nWorkflowUrl || null,
+                instanceId: instanceId || null,
+            },
+        });
+        logger.info('✅ Saved workflow build to database');
+    } catch (error) {
+        logger.warn('⚠️ Failed to save workflow build to database:', error);
+        // Don't fail the request if save fails
+    }
+
     return result;
+};
+
+// ==================== Get Build History ====================
+
+export const getBuildHistory = async (userId: string) => {
+    try {
+        const builds = await prisma.workflowBuild.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+            take: 50, // Limit to last 50
+            select: {
+                id: true,
+                idea: true,
+                extractedServices: true,
+                workflowName: true,
+                workflowJson: true,
+                nodesCount: true,
+                explanation: true,
+                requiredCredentials: true,
+                success: true,
+                n8nWorkflowUrl: true,
+                createdAt: true,
+            },
+        });
+        return builds;
+    } catch (error) {
+        logger.warn('⚠️ Failed to fetch build history:', error);
+        return [];
+    }
 };
 
 // ==================== Apply Node Fix ====================
