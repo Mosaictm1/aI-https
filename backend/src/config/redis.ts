@@ -8,39 +8,59 @@ import { env } from './env.js';
 // ==================== Create Client ====================
 
 const createRedisClient = (): Redis | null => {
-    // Skip Redis in development if not configured
-    if (!env.redis.url && env.isDevelopment) {
+    // Skip Redis entirely if no URL is configured (both dev and prod)
+    // Redis is optional for this application
+    if (!env.redis.url) {
         console.log('⚠️  Redis not configured, using in-memory fallback');
         return null;
     }
 
-    const client = env.redis.url
-        ? new Redis(env.redis.url, {
+    try {
+        const client = new Redis(env.redis.url, {
             maxRetriesPerRequest: 3,
             lazyConnect: true,
-        })
-        : new Redis({
-            host: env.redis.host,
-            port: env.redis.port,
-            password: env.redis.password,
-            maxRetriesPerRequest: 3,
-            lazyConnect: true,
+            retryStrategy: (times) => {
+                // Stop retrying after 3 attempts
+                if (times > 3) {
+                    console.log('⚠️  Redis connection failed after 3 retries, using in-memory fallback');
+                    return null;
+                }
+                return Math.min(times * 200, 2000);
+            },
         });
 
-    // Event handlers
-    client.on('connect', () => {
-        console.log('✅ Redis connected');
-    });
+        // Event handlers - only log once to avoid spam
+        let hasConnected = false;
+        let hasErrored = false;
 
-    client.on('error', (err: Error) => {
-        console.error('❌ Redis error:', err.message);
-    });
+        client.on('connect', () => {
+            if (!hasConnected) {
+                console.log('✅ Redis connected');
+                hasConnected = true;
+            }
+        });
 
-    client.on('close', () => {
-        console.log('📤 Redis connection closed');
-    });
+        client.on('error', (err: Error) => {
+            if (!hasErrored) {
+                console.error('❌ Redis error:', err.message);
+                hasErrored = true;
+            }
+        });
 
-    return client;
+        client.on('close', () => {
+            // Only log if we had successfully connected before
+            if (hasConnected) {
+                console.log('📤 Redis connection closed');
+                hasConnected = false;
+                hasErrored = false;
+            }
+        });
+
+        return client;
+    } catch (error) {
+        console.log('⚠️  Failed to create Redis client, using in-memory fallback');
+        return null;
+    }
 };
 
 export const redis = createRedisClient();

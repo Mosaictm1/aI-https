@@ -342,6 +342,9 @@ export class ManusClient {
         const task = await this.createTask({ prompt, agentProfile });
         logger.info(`Created Manus task: ${task.id}`);
 
+        // Wait 2 seconds before first poll - newly created tasks may not be immediately queryable
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
         const completedTask = await this.waitForTask(task.id);
 
         if (!completedTask.result) {
