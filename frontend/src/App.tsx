@@ -15,7 +15,7 @@ import Instances from '@/pages/Instances';
 import Workflows from '@/pages/Workflows';
 import WorkflowDetails from '@/pages/WorkflowDetails';
 import Settings from '@/pages/Settings';
-import HttpBuilder from '@/pages/HttpBuilder';
+
 import ApiKeys from '@/pages/ApiKeys';
 import AIFixer from '@/pages/AIFixer';
 
@@ -90,10 +90,10 @@ function App() {
                     <Route path="instances" element={<Instances />} />
                     <Route path="workflows" element={<Workflows />} />
                     <Route path="workflows/:id" element={<WorkflowDetails />} />
-                    <Route path="http-builder" element={<HttpBuilder />} />
+
                     <Route path="ai-fixer" element={<AIFixer />} />
                     <Route path="ai-analysis" element={<AIFixer />} />
-                    <Route path="templates" element={<Dashboard />} /> {/* TODO: Templates page */}
+
                     <Route path="api-keys" element={<ApiKeys />} />
                     <Route path="settings" element={<Settings />} />
                 </Route>

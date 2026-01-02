@@ -17,7 +17,7 @@ import { useInstances } from '@/hooks/useInstances';
 import { useWorkflows } from '@/hooks/useWorkflows';
 
 const quickActions = [
-    { label: 'HTTP Request جديد', icon: Activity, href: '/http-builder' },
+    { label: 'إصلاح Workflow بالذكاء الاصطناعي', icon: Activity, href: '/ai-fixer' },
     { label: 'تحليل خطأ', icon: AlertTriangle, href: '/ai-analysis' },
     { label: 'إضافة Instance', icon: Server, href: '/instances' },
 ];

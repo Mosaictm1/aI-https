@@ -3,8 +3,6 @@ import {
     LayoutDashboard,
     Server,
     Workflow,
-    Code2,
-    FileCode,
     Key,
     Settings,
     ChevronRight,
@@ -19,9 +17,7 @@ const navigation = [
     { name: 'لوحة التحكم', href: '/dashboard', icon: LayoutDashboard },
     { name: 'الـ Instances', href: '/instances', icon: Server },
     { name: 'سير العمل', href: '/workflows', icon: Workflow },
-    { name: 'HTTP Builder', href: '/http-builder', icon: Code2 },
     { name: 'AI Fixer', href: '/ai-fixer', icon: Bot },
-    { name: 'القوالب', href: '/templates', icon: FileCode },
 ];
 
 const bottomNavigation = [
