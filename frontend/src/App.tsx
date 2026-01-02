@@ -18,6 +18,7 @@ import Settings from '@/pages/Settings';
 
 import ApiKeys from '@/pages/ApiKeys';
 import AIFixer from '@/pages/AIFixer';
+import History from '@/pages/History';
 
 // Protected Route Wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -93,6 +94,7 @@ function App() {
 
                     <Route path="ai-fixer" element={<AIFixer />} />
                     <Route path="ai-analysis" element={<AIFixer />} />
+                    <Route path="history" element={<History />} />
 
                     <Route path="api-keys" element={<ApiKeys />} />
                     <Route path="settings" element={<Settings />} />

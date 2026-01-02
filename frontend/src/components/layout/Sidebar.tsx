@@ -9,6 +9,7 @@ import {
     ChevronLeft,
     Zap,
     Bot,
+    History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui.store';
@@ -18,6 +19,7 @@ const navigation = [
     { name: 'الـ Instances', href: '/instances', icon: Server },
     { name: 'سير العمل', href: '/workflows', icon: Workflow },
     { name: 'AI Fixer', href: '/ai-fixer', icon: Bot },
+    { name: 'السجل', href: '/history', icon: History },
 ];
 
 const bottomNavigation = [
